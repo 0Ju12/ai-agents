@@ -8,7 +8,7 @@ python -m pip install -r requirements.txt
 python app.py
 ```
 
-브라우저에서 http://127.0.0.1:8000 을 엽니다. API 명세는 /docs 에 있습니다. 단일 사용자용 로컬 서비스이며 기본 세션은 default입니다. 자유 대화에는 OPENAI_API_KEY가 필요합니다. 운동·영양 정보는 생활 기록용이며 개인별 의학적 판단은 전문가와 상담하세요.
+브라우저에서 http://127.0.0.1:8000 을 엽니다. API 명세는 /docs 에 있습니다. 단일 사용자용 로컬 서비스이며 기본 세션은 default입니다. 자유 대화는 현재 OpenAI 엔드포인트와 `OPENAI_API_KEY`를 사용합니다. SSAFY GMS 연결은 예정 사항입니다. 운동·영양 정보는 생활 기록용이며 개인별 의학적 판단은 전문가와 상담하세요.
 
 ## 대표 시나리오
 
@@ -35,7 +35,7 @@ LangGraph는 분석 → 계획 → 실행 → 판정 → 응답으로 진행합�
 | F3015–3019 | /api/plans 목록·생성·상세·수정·삭제, 겹침 알림, 웹 화면의 실행 단계·계획 관리 |
 | NF3001–3007 | 환경변수 키, 고정 HTTPS 출처, 실패 응답과 상한, 소요시간 기록, 별도 화면·도구 모듈 |
 
-외부 데이터는 [TheMealDB 교육용 API](https://www.themealdb.com/api.php)와 [Open Food Facts API](https://openfoodfacts.github.io/openfoodfacts-server/api/)를 사용합니다. TheMealDB 공개 개발 키 1은 학습용이며 앱 출시 시 이용 조건을 다시 확인해야 합니다. Open Food Facts 데이터는 ODbL이며 공급자의 엔드포인트별 호출 제한이 적용됩니다. 후보·상세·영양 세 엔드포인트는 두 제공처에서 제공합니다.
+해외 레시피와 바코드 조회에는 [TheMealDB 교육용 API](https://www.themealdb.com/api.php)와 [Open Food Facts API](https://openfoodfacts.github.io/openfoodfacts-server/api/)를 사용합니다. TheMealDB 공개 개발 키 1은 학습용이며 앱 출시 시 이용 조건을 다시 확인해야 합니다. Open Food Facts 데이터는 ODbL이며 공급자의 엔드포인트별 호출 제한이 적용됩니다. 후보·상세·영양 세 엔드포인트는 두 제공처에서 제공합니다.
 
 ```bash
 python -m pip install pytest httpx
@@ -46,7 +46,14 @@ python -m pytest -q test_agent.py
 
 ## 국내 레시피와 영양 정보
 
-서버 환경변수 또는 저장소 루트의 로컬 .env에 FOODSAFETY_API_KEY(식품안전나라 인증키)와 DATA_GO_KR_SERVICE_KEY(공공데이터포털 서비스키)를 설정합니다. 모델 키와 별개입니다.
+서버 환경변수 또는 저장소 루트의 로컬 .env에 FOODSAFETY_API_KEY(식품안전나라 인증키)와 DATA_GO_KR_SERVICE_KEY(공공데이터포털 서비스키)를 설정합니다. 키 설정 후 서버를 다시 실행하세요.
+
+```dotenv
+FOODSAFETY_API_KEY=
+DATA_GO_KR_SERVICE_KEY=
+```
+
+자동 추천은 내장 메뉴 6개를 사용합니다. 국내 API 검색은 모의 응답으로 테스트했으며 발급키 실호출은 확인이 필요합니다.
 
 - `레시피 달걀찜`은 [COOKRCP01](https://www.foodsafetykorea.go.kr/api/openApiInfo.do?svc_no=COOKRCP01)에서 메뉴명으로 검색해 재료·분량 원문과 조리 순서를 가져옵니다.
 - `식품영양 두부`는 [식품영양성분 DB](https://www.data.go.kr/data/15127578/openapi.do)에서 식품별 기준량·열량·단백질을 조회합니다. 식품명과 기준량을 확인한 뒤 사용하세요.

@@ -1,4 +1,18 @@
-# 종합 여행 플래너 Agent
+# AI 에이전트 프로젝트
+
+## 냉장고 식단·운동 에이전트
+
+냉장고 재료와 가용 시간에 맞춰 식사와 운동을 추천합니다. 조리 분량과 실제 소요시간을 기록하면 남은 음식과 최근 조리시간을 다음 추천에 반영합니다.
+
+```bash
+cd fridge_agent
+python -m pip install -r requirements.txt
+python app.py
+```
+
+`http://127.0.0.1:8000`에서 `두부, 계란`을 입력하면 키 없이 첫 추천을 확인할 수 있습니다. 국내 API 키를 설정하면 `레시피 달걀찜`으로 재료와 조리법을, `식품영양 두부`로 기준량·열량·단백질을 조회합니다. [키 설정과 사용 예시](fridge_agent/README.md)
+
+## 종합 여행 플래너 Agent
 
 국보·보물, 관광지, 음식점, 카페를 한 일정에 묶고, 사용자가 고른 이동 수단으로 **어디서 무엇을 타고 몇 시에 도착하는지**까지 안내하는 LangGraph Agent 입니다. 장소마다 YouTube 영상과 Instagram 해시태그를 붙이고, 국가유산 해설은 2회차 국보 RAG([heritage-rag-guide](https://github.com/0Ju12/heritage-rag-guide))를 Tool 로 재사용합니다.
 
@@ -12,7 +26,7 @@ Agent: 08:00 서울역 KTX → 10:05 신경주
 ```
 (예시 화면이며 실제 시각은 API 로 확인합니다.)
 
-## 구조
+### 구조
 
 ```
 backend/
@@ -29,7 +43,7 @@ docs/                  요구사항 정의서 · Agent 설계 · Tool 정의서(
 tests/                 외부 API 없이 도는 테스트
 ```
 
-## 실행
+### 실행
 
 ```bash
 python -m venv .venv
@@ -59,7 +73,7 @@ python -m backend.agent.graph
 ```
 (테스트 / Tool 정의서 생성 / 그래프 구조 출력)
 
-## API 키 발급
+### API 키 발급
 
 | 키 | 어디서 | 쓰는 곳 |
 | --- | --- | --- |
@@ -69,7 +83,7 @@ python -m backend.agent.graph
 | `ODSAY_API_KEY` (선택) | ODsay LAB | 현지 대중교통 상세 |
 | `OPENAI_API_KEY` | OpenAI | LLM |
 
-## 사용한 외부 API (출처와 이용 조건, NF3007)
+### 사용한 외부 API (출처와 이용 조건, NF3007)
 
 | API | 제공 | 이용 조건 · 한도 |
 | --- | --- | --- |
@@ -85,7 +99,7 @@ python -m backend.agent.graph
 
 영상과 해시태그는 참고 콘텐츠이며, 운영시간·관람시간 같은 판단 근거는 공공 API 값만 씁니다.
 
-## 진행 상황
+### 진행 상황
 
 [docs/requirements.md](docs/requirements.md) 의 상태 열을 보세요. 1일차 할 일:
 
