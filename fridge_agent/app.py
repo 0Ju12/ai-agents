@@ -119,7 +119,7 @@ def recommend(state):
             "인스타그램":"https://www.instagram.com/explore/tags/"+quote(title.replace(" ",""))+"/",
             "운동":f"{body} · {ROUTINES[body]} · 휴식 포함 {min(available,10)}분" if available>=5 else "운동 시간 부족 · 다른 시간에 배치"}
 
-SPECIAL={"외식","집밥","메뉴","대체","조리","섭취","요리코치","레시피","식품영양","검색","영양","도움말"}
+SPECIAL={"물","수면","외식","집밥","메뉴","대체","조리","섭취","요리코치","레시피","식품영양","검색","영양","도움말"}
 
 def run(message, db_path="fridge.sqlite3", session_id="default"):
     message=message.strip()
@@ -162,6 +162,16 @@ def run(message, db_path="fridge.sqlite3", session_id="default"):
         if command in {"외식","집밥"}:
             state["out_date"]=date.today().isoformat() if command=="외식" else None
             emit("replan","식사 일정 변경",reason=command)
+        today = date.today().isoformat()
+        daily = state.setdefault("daily", {}).setdefault(today, {})
+        if command == "물":
+            if not argument.isdecimal() or not 1 <= int(argument) <= 2000:
+                raise ValueError("물 섭취량을 1~2000mL 범위로 입력하세요.")
+            daily["water_ml"] = daily.get("water_ml", 0) + int(argument)
+        if command == "수면":
+            if not re.fullmatch(r"(?:[0-9]|1[0-9]|2[0-4])(?:\.5)?", argument) or float(argument) > 24:
+                raise ValueError("수면 시간을 0~24시간 사이 0.5시간 단위로 입력하세요.")
+            daily["sleep_hours"] = float(argument)
         leftovers=state.setdefault("leftovers",{})
         records=state.setdefault("records",[])
         if command=="조리":
@@ -175,6 +185,7 @@ def run(message, db_path="fridge.sqlite3", session_id="default"):
             records.append({"meal":title,"actual":actual,"planned":previous["조리시간(분)"],"servings":servings})
         if command=="섭취":
             if leftovers.get(argument,0)<1: raise ValueError("남은 음식에서 메뉴 이름을 선택하세요.")
+            daily["eaten"] = daily.get("eaten", []) + [argument]
             leftovers[argument]-=1
             if not leftovers[argument]: del leftovers[argument]
         def local():
@@ -189,7 +200,7 @@ def run(message, db_path="fridge.sqlite3", session_id="default"):
         if command not in {"요리코치","레시피","식품영양","검색","영양","도움말"}: state["last_meal"]=result
         db.execute("INSERT INTO runs(state,result,session) VALUES (?,?,?)",(json.dumps(state),json.dumps(result),session_id))
     return {"냉장고":state["stock"],"총 가용 시간":state["minutes"],"목표":state["goal"],"계획":result,
-            "남은 음식":leftovers,"조리 기록":records[-5:],"실행 단계":[[x["type"],x["name"]] for x in steps]}
+            "오늘 기록":daily,"남은 음식":leftovers,"조리 기록":records[-5:],"실행 단계":[[x["type"],x["name"]] for x in steps]}
 
 @app.post("/api/chat")
 def chat(body:Message):

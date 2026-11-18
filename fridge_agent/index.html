@@ -1,15 +1,28 @@
-<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>냉장고 한 끼</title>
-<style>body{max-width:42rem;margin:8vh auto;padding:1rem;font:17px/1.6 system-ui;color:#18382c;background:#fafbf7}input,button{font:inherit;padding:.5rem}input{width:60%}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{display:block}</style>
-<h1>냉장고 한 끼</h1><form id="form"><label>냉장고 재료 또는 요청<br><input id="entry" placeholder="두부, 계란" required></label> <button>반영</button></form>
-<p>재료명은 쉼표로 구분하세요. 조건 변경 예시: 삭제 달걀 · 시간 20 · 부위 코어 · 목표 근력</p>
-<form id="coach"><h2>요리코치</h2><label>먹고 싶은 메뉴 <input name="dish" placeholder="달걀찜" required></label>
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#264939"><title>냉장고 한 끼</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f3e9;color:#24362c;font:16px/1.55 system-ui,sans-serif;word-break:keep-all}main,header{width:min(100%,680px);margin:auto;padding:16px 18px}header{display:flex;align-items:center;gap:10px;border-bottom:1px solid #cfcfc0;font-weight:750}header span{background:#284f3b;color:#ffdf86;padding:3px 9px;border-radius:8px}h1,h2,h3,p{margin:0 0 10px}h1{font-size:30px;letter-spacing:-2px}h2{font-size:19px}button,input,select{font:inherit;border-radius:10px;padding:9px 12px;min-height:42px}button{border:0;background:#284c39;color:#fff;cursor:pointer}button:disabled{opacity:.55}input,select{max-width:100%;min-width:0;border:1px solid #a6ab99;background:#fffef9}label{display:block;margin:6px 0}label input:not([type=checkbox]){display:block;width:100%}.row,#chips,#links{display:flex;gap:7px;flex-wrap:wrap;align-items:center}.row input{flex:1}section.card,details.panel{background:#fffef8;border:1px solid #d9d9ca;border-radius:17px;padding:16px;margin:12px 0}summary{cursor:pointer;font-weight:700}.hero{background:#244937;color:#fffbea;border-radius:21px;padding:20px;margin:14px 0}.hero small{color:#c5dbc3}.hero h2{font-size:30px;letter-spacing:-1.5px;margin:4px 0}.hero b{display:inline-block;background:#f6d776;color:#273525;border-radius:6px;padding:3px 8px;font-size:14px}.hero p{margin:10px 0 0}.chip{background:#e8edde;color:#284638;padding:4px 10px;border-radius:20px;font-size:14px}a{color:#285c42}#links a{padding:4px}#result{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}nav{display:flex;gap:15px;flex-wrap:wrap;font-size:14px}nav a{text-decoration:none}#feedback{color:#854720}details[open]>summary{margin-bottom:10px}button.secondary{background:#e3e9d9;color:#263e30}input[type=checkbox]{min-height:auto}section,details{scroll-margin:12px}
+</style>
+<header><span aria-hidden="true">♨</span>냉장고 한 끼</header><main>
+<nav><a href="#pantry">내 냉장고</a><a href="#coach">요리코치</a><a href="#wellness">운동·생활</a><a href="#schedule">계획</a></nav>
+<section id="pantry" class="card"><h1>내 냉장고</h1><div id="chips"></div>
+<form id="form"><label for="entry">재료 추가 또는 요청</label><div class="row"><input id="entry" placeholder="예: 두부, 계란" required><button>반영</button></div></form>
+<details><summary>명령과 자유 대화</summary><p>삭제 달걀 · 시간 20 · 외식 · 집밥 · 대체 양파 · 레시피 달걀찜 · 식품영양 두부</p><label><input type="checkbox" id="natural"> 자유 대화 (서버 모델 키 필요)</label></details></section>
+<p id="feedback" role="status"></p>
+<article class="hero"><small>오늘의 식사</small><h2 id="meal">추천 확인 중</h2><b id="metrics" hidden></b><p id="mealNote"></p></article>
+<section class="card" id="mealActions"><h2>조리와 장보기</h2><p id="guide"></p><div id="links"></div><form id="cookForm" hidden><div class="row"><label>조리 인분 <input name="servings" type="number" min="1" max="20" value="1" required></label><label>실제 시간(분) <input name="minutes" type="number" min="1" max="600" required></label><button>조리 완료</button></div></form><div id="eatActions"></div></section>
+<details class="panel"><summary>요리코치 · 레시피와 영양 조회</summary><form id="coach"><h2>요리코치</h2><label>먹고 싶은 메뉴 <input name="dish" placeholder="달걀찜" required></label>
 <label>먼저 쓸 재료 <input name="ingredient" placeholder="달걀" required></label>
 <label>제품 바코드 (선택) <input name="barcode" inputmode="numeric" pattern="[0-9]{8,14}"></label>
 <button>조리법과 영양 확인</button></form><section id="cooking" aria-live="polite"></section>
-<details><summary>사용할 수 있는 명령</summary><p>외식 · 집밥 · 메뉴 대파 달걀볶음 · 대체 양파 · 조리 2인분 15분 · 섭취 양파 달걀볶음 · 레시피 달걀찜 · 식품영양 두부 · 검색 달걀 · 영양 3017620422003</p></details>
-<label><input type="checkbox" id="natural" style="width:auto">자유 대화 (서버에 모델 키 필요)</label><pre id="result" aria-live="polite"></pre><div id="links"></div>
-<section><h2>저장한 계획</h2><form id="schedule"><label>날짜 <input type="date" id="day" required></label><label>시작 <input type="time" id="start" required></label><label>종료 <input type="time" id="end" required></label><button>현재 계획 저장</button></form><div id="saved"></div><p id="notice" role="status"></p></section>
-<script>
+</details>
+<section class="card" id="wellness"><h2>오늘의 운동</h2><p id="routine"></p><form id="training" class="row"><select id="focus" aria-label="운동 부위"><option>전신</option><option>코어</option><option>상체</option><option>하체</option></select><button>운동 변경</button></form></section>
+<section class="card"><h2>오늘의 생활 기록</h2><p id="water"></p><button id="drink" class="secondary">물 250mL 기록</button><form id="sleepForm"><label>지난밤 수면 시간 <input name="hours" type="number" min="0" max="24" step="0.5" required></label><button>수면 저장</button></form><p id="journal"></p></section>
+<details class="panel"><summary>저장한 계획</summary><section><h2>저장한 계획</h2><form id="schedule"><label>날짜 <input type="date" id="day" required></label><label>시작 <input type="time" id="start" required></label><label>종료 <input type="time" id="end" required></label><button>현재 계획 저장</button></form><div id="saved"></div><p id="notice" role="status"></p></section>
+</details><details class="panel"><summary>조회 결과와 실행 기록</summary><pre id="result"></pre></details></main><script>
+document.querySelector("nav").addEventListener("click",event=>{
+ const href=event.target.closest("a")?.getAttribute("href");
+ if(href){const panel=document.querySelector(href)?.closest("details");if(panel)panel.open=true}
+});
 let currentPlan;
 async function request(path,method="GET",body){
  const r=await fetch(path,{method,headers:{"Content-Type":"application/json"},body:body&&JSON.stringify(body)});
@@ -53,18 +66,44 @@ function showSteps(plan){
  previous.onclick=()=>{index--;render()};next.onclick=()=>{index++;render()};
  cooking.append(heading,step,previous,next);render();
 }
+let pending=false;
+function renderHome(data){
+ const plan=data.계획, dayLog=data["오늘 기록"]||{};
+ chips.replaceChildren();
+ for(const item of data.냉장고){const chip=document.createElement("span");chip.className="chip";chip.textContent=item;chips.append(chip)}
+ meal.textContent=plan.메뉴 || (plan["남은 음식 우선"]?"남은 음식 먼저":plan.조회?"조회 결과":plan.안내||"오늘의 계획");
+ const facts=[];if(plan["조리시간(분)"]!=null)facts.push(plan["조리시간(분)"]+"분");
+ if(plan["예상 kcal"]!=null)facts.push("1인분 약 "+plan["예상 kcal"]+" kcal");
+ metrics.hidden=!facts.length;metrics.style.display=facts.length?"inline-block":"none";metrics.textContent=facts.join(" · ");
+ mealNote.textContent=plan.부족분?.length?"필요한 재료 · "+plan.부족분.join(", "):plan.상태||"";
+ guide.textContent=plan.조리법||"";
+ cookForm.hidden=plan.상태!=="재료 보유";if(!cookForm.hidden)cookForm.elements.minutes.value=plan["조리시간(분)"];
+ eatActions.replaceChildren();
+ for(const [title,count] of Object.entries(data["남은 음식"]||{})){const b=document.createElement("button");b.textContent=title+" "+count+"인분 남음 · 1인분 먹음";b.onclick=()=>send("섭취 "+title);eatActions.append(b)}
+ routine.textContent=plan.운동||"재료와 식사 계획을 확인하면 운동을 추천합니다.";
+ water.textContent="물 · "+(dayLog.water_ml==null?"미기록":dayLog.water_ml+" mL");
+ journal.textContent="수면 · "+(dayLog.sleep_hours==null?"미기록":dayLog.sleep_hours+"시간")+"  /  섭취 · "+(dayLog.eaten||[]).length+"인분";
+ if(plan.조회)result.parentElement.open=true;
+}
+training.onsubmit=e=>{e.preventDefault();send("부위 "+focusSelect.value)};
+const focusSelect=document.querySelector("#focus");
+drink.onclick=()=>send("물 250");
+sleepForm.onsubmit=e=>{e.preventDefault();send("수면 "+sleepForm.elements.hours.value)};
+cookForm.onsubmit=e=>{e.preventDefault();send("조리 "+cookForm.elements.servings.value+"인분 "+cookForm.elements.minutes.value+"분")};
 async function send(message){
+ if(pending)return;pending=true;feedback.textContent="확인 중…";try{
  cooking.replaceChildren();
  result.textContent="계획을 확인하고 있습니다…";
  const response=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message})});
  const data=await response.json();links.replaceChildren();
- if(!response.ok){result.textContent=JSON.stringify(data.detail);return}
+ if(!response.ok){feedback.textContent=String(data.detail);return} renderHome(data);feedback.textContent="";
  showSteps(data.계획);currentPlan=structuredClone(data.계획);const p=data.계획;const urls={유튜브:p.유튜브,인스타그램:p.인스타그램,...p.쿠팡};delete p.유튜브;delete p.인스타그램;delete p.쿠팡;
  result.textContent=JSON.stringify(data,null,2);
  for(const [label,url] of Object.entries(urls)){if(!url)continue;const a=document.createElement('a');a.href=url;a.textContent=label+' 검색';links.append(a)}
+ }catch{feedback.textContent="서버 연결을 확인해 주세요."}finally{pending=false}
 }
 form.onsubmit=async e=>{e.preventDefault();let s=entry.value.trim();if(!s)return;
- if(!natural.checked&&!/^(추가|삭제|시간|부위|목표|추천|요리코치|레시피|식품영양|검색|영양|외식|집밥|메뉴|대체|조리|섭취|도움말)( |$)/.test(s))s='추가 '+s;
+ if(!natural.checked&&!/^(추가|삭제|시간|부위|목표|추천|물|수면|요리코치|레시피|식품영양|검색|영양|외식|집밥|메뉴|대체|조리|섭취|도움말)( |$)/.test(s))s='추가 '+s;
  try{await send(s);entry.value=''}catch{result.textContent='서버 연결을 확인해 주세요.'}};
 send('추천').catch(()=>result.textContent='서버 연결을 확인해 주세요.');
 </script></html>

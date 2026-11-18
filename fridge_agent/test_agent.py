@@ -86,3 +86,11 @@ def test_coach_sources(tmp_path,monkeypatch):
     assert guide["재고 확인"]=="등록됨" and guide["조리 단계"]==["섞기","찌기"]
     assert guide["재료 영양"]["error"]=="SOURCE_UNAVAILABLE"
     assert "안내" in run("요리코치 달걀찜")["계획"]
+
+def test_daily_journal(tmp_path,monkeypatch):
+    from app import run
+    monkeypatch.chdir(tmp_path)
+    assert run("물 250")["오늘 기록"]["water_ml"]==250
+    assert run("물 100")["오늘 기록"]["water_ml"]==350
+    assert run("수면 7.5")["오늘 기록"]["sleep_hours"]==7.5
+    assert run("추천",session_id="other")["오늘 기록"]=={}
