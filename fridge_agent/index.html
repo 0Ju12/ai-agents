@@ -2,18 +2,47 @@
 <style>body{max-width:42rem;margin:8vh auto;padding:1rem;font:17px/1.6 system-ui;color:#18382c;background:#fafbf7}input,button{font:inherit;padding:.5rem}input{width:60%}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{display:block}</style>
 <h1>냉장고 한 끼</h1><form id="form"><label>냉장고 재료 또는 요청<br><input id="entry" placeholder="두부, 계란" required></label> <button>반영</button></form>
 <p>재료명은 쉼표로 구분하세요. 조건 변경 예시: 삭제 달걀 · 시간 20 · 부위 코어 · 목표 근력</p>
+<details><summary>사용할 수 있는 명령</summary><p>외식 · 집밥 · 메뉴 대파 달걀볶음 · 대체 양파 · 조리 2인분 15분 · 섭취 양파 달걀볶음 · 검색 달걀 · 영양 3017620422003</p></details>
 <label><input type="checkbox" id="natural" style="width:auto">자유 대화 (서버에 모델 키 필요)</label><pre id="result" aria-live="polite"></pre><div id="links"></div>
+<section><h2>저장한 계획</h2><form id="schedule"><label>날짜 <input type="date" id="day" required></label><label>시작 <input type="time" id="start" required></label><label>종료 <input type="time" id="end" required></label><button>현재 계획 저장</button></form><div id="saved"></div><p id="notice" role="status"></p></section>
 <script>
+let currentPlan;
+async function request(path,method="GET",body){
+ const r=await fetch(path,{method,headers:{"Content-Type":"application/json"},body:body&&JSON.stringify(body)});
+ if(!r.ok)throw Error("계획 처리 실패");
+ return r.status===204?null:r.json();
+}
+async function refresh(){
+ const rows=await request("/api/plans");saved.replaceChildren();
+ for(const row of rows){
+  const line=document.createElement("p");line.textContent=row.trip_date+" "+row.start_time+"–"+row.end_time+" "+row.title+" ";
+  for(const action of ["수정","삭제"]){
+   const button=document.createElement("button");button.textContent=action;
+   button.onclick=async()=>{try{
+    if(action==="삭제"){await request("/api/plans/"+row.id,"DELETE")}
+    else {const title=prompt("계획 이름",row.title);if(!title)return;await request("/api/plans/"+row.id,"PATCH",{title})}
+    await refresh();
+   }catch(e){notice.textContent=e.message}};
+   line.append(button);
+  }saved.append(line);
+ }
+}
+schedule.onsubmit=async e=>{e.preventDefault();if(!currentPlan||end.value<=start.value){notice.textContent="계획과 시간 범위를 확인하세요.";return}
+ try{const r=await request("/api/plans","POST",{title:currentPlan.메뉴||"생활 계획",trip_date:day.value,start_time:start.value,end_time:end.value,items:[currentPlan]});
+ notice.textContent=r.overlaps.length?"저장됨 · 겹치는 일정이 있습니다.":"저장됨";await refresh()}catch(e){notice.textContent=e.message}};
+refresh().catch(e=>notice.textContent=e.message);
+
 async function send(message){
+ result.textContent="계획을 확인하고 있습니다…";
  const response=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message})});
  const data=await response.json();links.replaceChildren();
  if(!response.ok){result.textContent=JSON.stringify(data.detail);return}
- const p=data.계획;const urls={유튜브:p.유튜브,인스타그램:p.인스타그램,...p.쿠팡};delete p.유튜브;delete p.인스타그램;delete p.쿠팡;
+ currentPlan=structuredClone(data.계획);const p=data.계획;const urls={유튜브:p.유튜브,인스타그램:p.인스타그램,...p.쿠팡};delete p.유튜브;delete p.인스타그램;delete p.쿠팡;
  result.textContent=JSON.stringify(data,null,2);
  for(const [label,url] of Object.entries(urls)){if(!url)continue;const a=document.createElement('a');a.href=url;a.textContent=label+' 검색';links.append(a)}
 }
 form.onsubmit=async e=>{e.preventDefault();let s=entry.value.trim();if(!s)return;
- if(!natural.checked&&!/^(추가|삭제|시간|부위|목표|추천)( |$)/.test(s))s='추가 '+s;
+ if(!natural.checked&&!/^(추가|삭제|시간|부위|목표|추천|검색|영양|외식|집밥|메뉴|대체|조리|섭취|도움말)( |$)/.test(s))s='추가 '+s;
  try{await send(s);entry.value=''}catch{result.textContent='서버 연결을 확인해 주세요.'}};
 send('추천').catch(()=>result.textContent='서버 연결을 확인해 주세요.');
 </script></html>
