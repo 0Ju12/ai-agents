@@ -85,7 +85,7 @@ def interpret(message):
         raise ValueError("명령 예시: 추가 두부, 계란 / 삭제 달걀 / 시간 30 / 부위 코어 / 목표 체력 / 추천")
     prompt = ("한국어 생활 계획 요청에서 명시한 재고 변경과 조건만 JSON으로 추출한다. "
               "add/remove는 재료명 배열, minutes는 식사와 운동의 총 가용 분, body는 하체/상체/코어/전신, "
-              "goal은 체력/근력/체중 관리. 외식, 집밥, 메뉴, 대체, 검색, 영양, 레시피, 식품영양 요청은 action과 argument로 추출한다. 대체는 양파 또는 해제, 검색은 재료, 영양은 바코드, 국내 메뉴 조회는 레시피와 메뉴명, 국내 영양 조회는 식품영양과 식품명이다. 메뉴는 메뉴 이름이다. 언급되지 않은 필드는 생략한다. 질문이나 가정은 재고 변경이 아니다.")
+              "goal은 체력/근력/체중 관리. 외식, 집밥, 메뉴, 대체, 검색, 영양, 레시피, 식품영양 요청은 action과 argument로 추출한다. 대체는 양파 또는 해제, 검색은 재료, 영양은 바코드, 요리코치는 메뉴 / 먼저 쓸 재료 형식, 국내 메뉴 조회는 레시피와 메뉴명, 국내 영양 조회는 식품영양과 식품명이다. 메뉴는 메뉴 이름이다. 언급되지 않은 필드는 생략한다. 질문이나 가정은 재고 변경이 아니다.")
     payload = {"model":os.getenv("OPENAI_MODEL","gpt-4o-mini"),"response_format":{"type":"json_object"},
                "messages":[{"role":"system","content":prompt},{"role":"user","content":message}]}
     req = Request("https://api.openai.com/v1/chat/completions",json.dumps(payload).encode(),
@@ -119,7 +119,7 @@ def recommend(state):
             "인스타그램":"https://www.instagram.com/explore/tags/"+quote(title.replace(" ",""))+"/",
             "운동":f"{body} · {ROUTINES[body]} · 휴식 포함 {min(available,10)}분" if available>=5 else "운동 시간 부족 · 다른 시간에 배치"}
 
-SPECIAL={"외식","집밥","메뉴","대체","조리","섭취","레시피","식품영양","검색","영양","도움말"}
+SPECIAL={"외식","집밥","메뉴","대체","조리","섭취","요리코치","레시피","식품영양","검색","영양","도움말"}
 
 def run(message, db_path="fridge.sqlite3", session_id="default"):
     message=message.strip()
@@ -128,7 +128,7 @@ def run(message, db_path="fridge.sqlite3", session_id="default"):
         intent=Intent()
     else:
         intent=interpret(message)
-        if intent.action in {"외식","집밥","메뉴","대체","레시피","식품영양","검색","영양"}:
+        if intent.action in {"외식","집밥","메뉴","대체","요리코치","레시피","식품영양","검색","영양"}:
             command,argument=intent.action,intent.argument.strip()
     if intent.body is not None and intent.body not in ROUTINES: raise ValueError("지원하지 않는 운동 부위")
     if intent.goal is not None and intent.goal not in GOALS: raise ValueError("지원하지 않는 목표")
@@ -186,7 +186,7 @@ def run(message, db_path="fridge.sqlite3", session_id="default"):
                 return {"남은 음식 우선":dict(leftovers),"운동":exercise}
             return recommend(state) if stock or state.get("wanted") else {"안내":"냉장고 재료를 먼저 추가해 주세요."}
         result=execute(command,argument,local,emit,stock)
-        if command not in {"레시피","식품영양","검색","영양","도움말"}: state["last_meal"]=result
+        if command not in {"요리코치","레시피","식품영양","검색","영양","도움말"}: state["last_meal"]=result
         db.execute("INSERT INTO runs(state,result,session) VALUES (?,?,?)",(json.dumps(state),json.dumps(result),session_id))
     return {"냉장고":state["stock"],"총 가용 시간":state["minutes"],"목표":state["goal"],"계획":result,
             "남은 음식":leftovers,"조리 기록":records[-5:],"실행 단계":[[x["type"],x["name"]] for x in steps]}

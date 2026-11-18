@@ -68,3 +68,21 @@ def test_korean_sources(tmp_path,monkeypatch):
     assert query("레시피 달걀찜")["ok"]
     assert query("식품영양 두부")["data"][0]["단백질(g)"]=="8"
     assert len(calls)==2
+
+def test_coach_sources(tmp_path,monkeypatch):
+    import food_tools
+    from app import run
+    monkeypatch.chdir(tmp_path)
+    calls=[]
+    def fixture(tool,arg):
+        calls.append(tool)
+        if tool=="kr_recipe":
+            return {"ok":True,"data":[{"메뉴":"달걀찜","조리 순서":["섞기","찌기"],"재료·분량":"달걀 50g"}]}
+        return {"ok":False,"error":"SOURCE_UNAVAILABLE"}
+    monkeypatch.setattr(food_tools,"call",fixture)
+    run("추가 계란")
+    guide=run("요리코치 달걀찜 / 계란 / 3017620422003")["계획"]
+    assert calls==["kr_recipe","kr_nutrition","search","nutrition"]
+    assert guide["재고 확인"]=="등록됨" and guide["조리 단계"]==["섞기","찌기"]
+    assert guide["재료 영양"]["error"]=="SOURCE_UNAVAILABLE"
+    assert "안내" in run("요리코치 달걀찜")["계획"]

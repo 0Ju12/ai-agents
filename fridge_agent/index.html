@@ -2,6 +2,10 @@
 <style>body{max-width:42rem;margin:8vh auto;padding:1rem;font:17px/1.6 system-ui;color:#18382c;background:#fafbf7}input,button{font:inherit;padding:.5rem}input{width:60%}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{display:block}</style>
 <h1>냉장고 한 끼</h1><form id="form"><label>냉장고 재료 또는 요청<br><input id="entry" placeholder="두부, 계란" required></label> <button>반영</button></form>
 <p>재료명은 쉼표로 구분하세요. 조건 변경 예시: 삭제 달걀 · 시간 20 · 부위 코어 · 목표 근력</p>
+<form id="coach"><h2>요리코치</h2><label>먹고 싶은 메뉴 <input name="dish" placeholder="달걀찜" required></label>
+<label>먼저 쓸 재료 <input name="ingredient" placeholder="달걀" required></label>
+<label>제품 바코드 (선택) <input name="barcode" inputmode="numeric" pattern="[0-9]{8,14}"></label>
+<button>조리법과 영양 확인</button></form><section id="cooking" aria-live="polite"></section>
 <details><summary>사용할 수 있는 명령</summary><p>외식 · 집밥 · 메뉴 대파 달걀볶음 · 대체 양파 · 조리 2인분 15분 · 섭취 양파 달걀볶음 · 레시피 달걀찜 · 식품영양 두부 · 검색 달걀 · 영양 3017620422003</p></details>
 <label><input type="checkbox" id="natural" style="width:auto">자유 대화 (서버에 모델 키 필요)</label><pre id="result" aria-live="polite"></pre><div id="links"></div>
 <section><h2>저장한 계획</h2><form id="schedule"><label>날짜 <input type="date" id="day" required></label><label>시작 <input type="time" id="start" required></label><label>종료 <input type="time" id="end" required></label><button>현재 계획 저장</button></form><div id="saved"></div><p id="notice" role="status"></p></section>
@@ -32,17 +36,35 @@ schedule.onsubmit=async e=>{e.preventDefault();if(!currentPlan||end.value<=start
  notice.textContent=r.overlaps.length?"저장됨 · 겹치는 일정이 있습니다.":"저장됨";await refresh()}catch(e){notice.textContent=e.message}};
 refresh().catch(e=>notice.textContent=e.message);
 
+coach.onsubmit=async event=>{
+ event.preventDefault();
+ const parts=Array.from(new FormData(coach).values(),value=>value.trim()).filter(Boolean);
+ try{await send("요리코치 "+parts.join(" / "))}catch{result.textContent="서버 연결을 확인해 주세요."}
+};
+function showSteps(plan){
+ cooking.replaceChildren();
+ const steps=(plan["조리 단계"]||[]).filter(step=>step.trim());
+ if(!steps.length)return;
+ let index=0;
+ const heading=document.createElement("h3"),step=document.createElement("p");
+ const previous=document.createElement("button"),next=document.createElement("button");
+ previous.textContent="이전";next.textContent="다음";
+ function render(){heading.textContent=plan.메뉴+" · "+(index+1)+"/"+steps.length;step.textContent=steps[index];previous.disabled=index===0;next.disabled=index===steps.length-1}
+ previous.onclick=()=>{index--;render()};next.onclick=()=>{index++;render()};
+ cooking.append(heading,step,previous,next);render();
+}
 async function send(message){
+ cooking.replaceChildren();
  result.textContent="계획을 확인하고 있습니다…";
  const response=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message})});
  const data=await response.json();links.replaceChildren();
  if(!response.ok){result.textContent=JSON.stringify(data.detail);return}
- currentPlan=structuredClone(data.계획);const p=data.계획;const urls={유튜브:p.유튜브,인스타그램:p.인스타그램,...p.쿠팡};delete p.유튜브;delete p.인스타그램;delete p.쿠팡;
+ showSteps(data.계획);currentPlan=structuredClone(data.계획);const p=data.계획;const urls={유튜브:p.유튜브,인스타그램:p.인스타그램,...p.쿠팡};delete p.유튜브;delete p.인스타그램;delete p.쿠팡;
  result.textContent=JSON.stringify(data,null,2);
  for(const [label,url] of Object.entries(urls)){if(!url)continue;const a=document.createElement('a');a.href=url;a.textContent=label+' 검색';links.append(a)}
 }
 form.onsubmit=async e=>{e.preventDefault();let s=entry.value.trim();if(!s)return;
- if(!natural.checked&&!/^(추가|삭제|시간|부위|목표|추천|레시피|식품영양|검색|영양|외식|집밥|메뉴|대체|조리|섭취|도움말)( |$)/.test(s))s='추가 '+s;
+ if(!natural.checked&&!/^(추가|삭제|시간|부위|목표|추천|요리코치|레시피|식품영양|검색|영양|외식|집밥|메뉴|대체|조리|섭취|도움말)( |$)/.test(s))s='추가 '+s;
  try{await send(s);entry.value=''}catch{result.textContent='서버 연결을 확인해 주세요.'}};
 send('추천').catch(()=>result.textContent='서버 연결을 확인해 주세요.');
 </script></html>
