@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>여행 플래너 Agent</title>
+<style>
+  :root { --bg:#f6f7f6; --surface:#fff; --line:#d8dedb; --fg:#17201d; --muted:#5d6b66; --accent:#0f6a5c; --warn:#9a5b00; --bad:#a3302a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; font-size:15px; }
+  header { padding:16px max(16px, env(safe-area-inset-left)); border-bottom:1px solid var(--line); background:var(--surface); display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; }
+  nav button { border:1px solid var(--line); background:var(--surface); padding:6px 12px; border-radius:6px; cursor:pointer; }
+  nav button[aria-pressed="true"] { background:var(--accent); color:#fff; border-color:var(--accent); }
+  #keys { margin-left:auto; font-size:13px; color:var(--warn); }
+  main { max-width:1100px; margin:0 auto; padding:16px; }
+  .grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:16px; }
+  @media (max-width: 800px) { .grid { grid-template-columns:1fr; } }
+  section { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:12px; min-width:0; }
+  h2 { font-size:15px; margin:0 0 8px; }
+  #messages { min-height:240px; max-height:55vh; overflow:auto; display:flex; flex-direction:column; gap:8px; }
+  .msg { padding:8px 10px; border-radius:8px; white-space:pre-wrap; }
+  .user { background:#e7f2ef; align-self:flex-end; }
+  .bot { background:#f1f1ee; }
+  form { display:flex; gap:8px; margin-top:8px; }
+  input, button.primary { font:inherit; }
+  input { flex:1; min-width:0; padding:8px; border:1px solid var(--line); border-radius:6px; }
+  button.primary { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 14px; cursor:pointer; }
+  ol#steps { margin:0; padding-left:20px; font-size:13px; color:var(--muted); }
+  ol#steps li.replan { color:var(--warn); font-weight:600; }
+  ol#steps li.fail { color:var(--bad); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:6px; border-bottom:1px solid var(--line); }
+  .overlap { color:var(--warn); }
+</style>
+</head>
+<body>
+<header>
+  <h1>여행 플래너 Agent</h1>
+  <nav>
+    <button id="tab-chat" aria-pressed="true">대화</button>
+    <button id="tab-plans" aria-pressed="false">여행 계획</button>
+  </nav>
+  <span id="keys"></span>
+</header>
+<main>
+  <!-- 대화 화면 (F3018): 답변 + 실행 단계·Tool 이력, 재계획 지점 구분 (F3019) -->
+  <div id="view-chat" class="grid">
+    <section>
+      <h2>대화</h2>
+      <div id="messages"></div>
+      <form id="chat-form">
+        <input id="chat-input" placeholder="예: 토요일 서울에서 KTX로 경주 당일치기, 국보 2곳이랑 카페" autocomplete="off">
+        <button class="primary" type="submit">보내기</button>
+      </form>
+    </section>
+    <section>
+      <h2>실행 과정</h2>
+      <ol id="steps"></ol>
+    </section>
+  </div>
+  <!-- 계획 관리 화면 (F3018): 목록 · 수정 · 삭제, 겹침 알림 (F3015~F3016) -->
+  <div id="view-plans" hidden>
+    <section>
+      <h2>저장한 여행 계획</h2>
+      <table><thead><tr><th>제목</th><th>날짜</th><th>시간</th><th></th></tr></thead><tbody id="plans"></tbody></table>
+      <p id="plan-note" class="overlap"></p>
+    </section>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let sessionId = null;
+
+function tab(name) {
+  for (const t of ["chat", "plans"]) {
+    $("view-" + t).hidden = t !== name;
+    $("tab-" + t).setAttribute("aria-pressed", String(t === name));
+  }
+  if (name === "plans") loadPlans();
+}
+$("tab-chat").onclick = () => tab("chat");
+$("tab-plans").onclick = () => tab("plans");
+
+function addMsg(text, who) {
+  const div = document.createElement("div");
+  div.className = "msg " + who;
+  div.textContent = text;
+  $("messages").append(div);
+  $("messages").scrollTop = $("messages").scrollHeight;
+}
+
+function renderSteps(steps) {
+  const ol = $("steps");
+  ol.innerHTML = "";
+  for (const s of steps) {
+    if (s.type === "node_end") continue;
+    const li = document.createElement("li");
+    if (s.type === "replan") { li.className = "replan"; li.textContent = `재계획 ${s.payload.count}회`; }
+    else if (s.type === "tool_result") {
+      li.className = s.payload.ok ? "" : "fail";
+      li.textContent = `${s.name} → ${s.payload.ok ? "성공" : s.payload.error.code} (${s.payload.elapsed_ms}ms)`;
+    }
+    else if (s.type === "tool_call") li.textContent = `도구 호출: ${s.name}`;
+    else if (s.type === "llm_decision") li.textContent = `판단(${s.name}): ${s.payload.decision ?? ""} ${s.payload.reason ?? ""}`;
+    else li.textContent = `단계: ${s.name}`;
+    ol.append(li);
+  }
+}
+
+$("chat-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const text = $("chat-input").value.trim();
+  if (!text) return;
+  addMsg(text, "user");
+  $("chat-input").value = "";
+  const pending = document.createElement("div");
+  pending.className = "msg bot"; pending.textContent = "처리 중…"; $("messages").append(pending);
+  try {
+    const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, session_id: sessionId }) });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    sessionId = data.session_id;
+    pending.textContent = data.answer;
+    renderSteps(data.steps);
+  } catch {
+    pending.textContent = "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요."; // 오류 상세는 노출하지 않음 (NF3002)
+  }
+};
+
+async function loadPlans() {
+  const rows = await (await fetch("/api/plans")).json();
+  $("plans").innerHTML = "";
+  for (const p of rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td></td><td></td><td></td><td><button>삭제</button></td>`;
+    tr.children[0].textContent = p.title;
+    tr.children[1].textContent = p.trip_date;
+    tr.children[2].textContent = `${p.start_time}~${p.end_time}`;
+    tr.querySelector("button").onclick = async () => { await fetch(`/api/plans/${p.id}`, { method: "DELETE" }); loadPlans(); };
+    $("plans").append(tr);
+  }
+}
+
+(async () => {
+  try {
+    const { keys } = await (await fetch("/api/status")).json();
+    const missing = Object.entries(keys).filter(([, v]) => !v).map(([k]) => k);
+    $("keys").textContent = missing.length ? `설정되지 않은 키: ${missing.join(", ")} (.env 확인)` : "";
+  } catch {}
+})();
+</script>
+</body>
+</html>
