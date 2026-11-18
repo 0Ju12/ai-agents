@@ -1,0 +1,19 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>냉장고 한 끼</title>
+<style>body{max-width:42rem;margin:8vh auto;padding:1rem;font:17px/1.6 system-ui;color:#18382c;background:#fafbf7}input,button{font:inherit;padding:.5rem}input{width:60%}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{display:block}</style>
+<h1>냉장고 한 끼</h1><form id="form"><label>냉장고 재료 또는 요청<br><input id="entry" placeholder="두부, 계란" required></label> <button>반영</button></form>
+<p>재료명은 쉼표로 구분하세요. 조건 변경 예시: 삭제 달걀 · 시간 20 · 부위 코어 · 목표 근력</p>
+<label><input type="checkbox" id="natural" style="width:auto">자유 대화 (서버에 모델 키 필요)</label><pre id="result" aria-live="polite"></pre><div id="links"></div>
+<script>
+async function send(message){
+ const response=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message})});
+ const data=await response.json();links.replaceChildren();
+ if(!response.ok){result.textContent=JSON.stringify(data.detail);return}
+ const p=data.계획;const urls={유튜브:p.유튜브,인스타그램:p.인스타그램,...p.쿠팡};delete p.유튜브;delete p.인스타그램;delete p.쿠팡;
+ result.textContent=JSON.stringify(data,null,2);
+ for(const [label,url] of Object.entries(urls)){if(!url)continue;const a=document.createElement('a');a.href=url;a.textContent=label+' 검색';links.append(a)}
+}
+form.onsubmit=async e=>{e.preventDefault();let s=entry.value.trim();if(!s)return;
+ if(!natural.checked&&!/^(추가|삭제|시간|부위|목표|추천)( |$)/.test(s))s='추가 '+s;
+ try{await send(s);entry.value=''}catch{result.textContent='서버 연결을 확인해 주세요.'}};
+send('추천').catch(()=>result.textContent='서버 연결을 확인해 주세요.');
+</script></html>
