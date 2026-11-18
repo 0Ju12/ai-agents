@@ -47,3 +47,24 @@ def test_graph_scenarios(tmp_path, monkeypatch):
     assert client.get("/api/logs/default").json()
     assert client.delete("/api/logs/default").status_code==204
     assert client.get("/api/logs/default").status_code==404
+
+def test_korean_sources(tmp_path,monkeypatch):
+    import food_tools
+    monkeypatch.chdir(tmp_path)
+    client=TestClient(app)
+    def query(msg): return client.post("/api/chat",json={"message":msg}).json()["계획"]["조회"]
+    monkeypatch.delenv("FOODSAFETY_API_KEY",raising=False)
+    assert query("레시피 달걀찜")["error"]=="MISSING_KEY"
+    monkeypatch.setenv("FOODSAFETY_API_KEY","test-recipe")
+    monkeypatch.setenv("DATA_GO_KR_SERVICE_KEY","test-food")
+    calls=[]
+    def read(url):
+        calls.append(url)
+        if "COOKRCP01" in url:
+            return {"COOKRCP01":{"RESULT":{"CODE":"INFO-000"},"row":[{"RCP_NM":"달걀찜","MANUAL01":"찐다","RCP_PARTS_DTLS":"달걀 50g"}]}}
+        return {"header":{"resultCode":"00"},"body":{"items":[{"FOOD_NM_KR":"두부","SERVING_SIZE":"100g","AMT_NUM1":"80","AMT_NUM3":"8"}]}}
+    monkeypatch.setattr(food_tools,"read",read)
+    assert query("레시피 달걀찜")["data"][0]["조리 순서"]==["찐다"]
+    assert query("레시피 달걀찜")["ok"]
+    assert query("식품영양 두부")["data"][0]["단백질(g)"]=="8"
+    assert len(calls)==2

@@ -20,7 +20,7 @@ def execute(command, argument, local, emit, stock=()):
         return {}
 
     def plan(s):
-        tool = {"검색":"search","영양":"nutrition","도움말":"help"}.get(s["command"],"local")
+        tool = {"레시피":"kr_recipe","식품영양":"kr_nutrition","검색":"search","영양":"nutrition","도움말":"help"}.get(s["command"],"local")
         return {"tool":tool,"attempts":0}
 
     def perform(s):

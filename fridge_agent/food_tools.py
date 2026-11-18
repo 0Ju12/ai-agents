@@ -1,10 +1,13 @@
 """Read-only public data tools. TheMealDB ingredient and instruction text is English."""
 import json
+from korean_food import lookup
 import re
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 CATALOG = {
+    "kr_recipe": ("국내 메뉴명으로 레시피와 재료·분량 조회","menu","레시피 목록"),
+    "kr_nutrition": ("식품명으로 식약처 영양성분 조회","food","기준량과 영양성분 목록"),
     "search": ("재료로 레시피 후보를 검색", "ingredient", "id, title 목록"),
     "detail": ("후보 식별자로 재료와 조리법 확인", "meal_id", "title, ingredients, instructions"),
     "nutrition": ("제품 바코드로 100g당 영양정보 확인", "barcode", "product, kcal, protein"),
@@ -17,6 +20,8 @@ def read(url):
         return json.load(response)
 
 def call(tool, argument):
+    if tool in {"kr_recipe","kr_nutrition"}:
+        return lookup(tool,argument,read)
     base = "https://www.themealdb.com/api/json/v1/1/"
     try:
         if tool == "search":

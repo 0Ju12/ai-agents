@@ -43,3 +43,11 @@ python -m pytest -q test_agent.py
 ```
 
 필수 흐름의 일부를 자동화한 테스트입니다. 예외·재계획 상한은 대역 도구로 재현합니다. 3회차 최종 제출에는 수업에서 제공하는 셀프 체크리스트와 시연 화면 캡처를 추가해야 합니다.
+
+## 국내 레시피와 영양 정보
+
+서버 환경변수 또는 저장소 루트의 로컬 .env에 FOODSAFETY_API_KEY(식품안전나라 인증키)와 DATA_GO_KR_SERVICE_KEY(공공데이터포털 서비스키)를 설정합니다. 모델 키와 별개입니다.
+
+- `레시피 달걀찜`은 [COOKRCP01](https://www.foodsafetykorea.go.kr/api/openApiInfo.do?svc_no=COOKRCP01)에서 메뉴명으로 검색해 재료·분량 원문과 조리 순서를 가져옵니다.
+- `식품영양 두부`는 [식품영양성분 DB](https://www.data.go.kr/data/15127578/openapi.do)에서 식품별 기준량·열량·단백질을 조회합니다. 식품명과 기준량을 확인한 뒤 사용하세요.
+- 성공한 검색 결과는 food_catalog.sqlite3에 24시간 캐시합니다. 누락 영양값은 추정하지 않습니다. 명령을 실행하면 화면과 API에 동일한 결과가 표시됩니다.
