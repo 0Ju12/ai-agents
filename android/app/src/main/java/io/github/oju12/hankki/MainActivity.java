@@ -26,6 +26,7 @@ public class MainActivity extends Activity {
     private String origin;
     private static final int READ_HEALTH = 42;
     private static final int PICK_PHOTO = 43;
+    private static final int NOTIFY = 44;
     private ValueCallback<Uri[]> photoCallback;
     private TextToSpeech tts;
 
@@ -134,6 +135,18 @@ public class MainActivity extends Activity {
             }
             @JavascriptInterface public void stop() { runOnUiThread(() -> { if (tts != null) tts.stop(); }); }
         }, "HankkiVoice");
+        // 물·영양제 알림: 화면이 일정 목록을 넘기면 시스템 알림을 예약한다 (앱이 꺼져 있어도 울림).
+        web.addJavascriptInterface(new Object() {
+            @JavascriptInterface public void schedule(String json) {
+                runOnUiThread(() -> {
+                    if (web == null || json == null || json.length() > 50_000 || !sameOrigin(Uri.parse(web.getUrl()))) return;
+                    if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                        requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, NOTIFY);
+                    ReminderScheduler.save(MainActivity.this, origin, json);
+                    ReminderScheduler.rescheduleAll(MainActivity.this);
+                });
+            }
+        }, "HankkiReminder");
         web.setOnApplyWindowInsetsListener((v,insets)->{
             if(Build.VERSION.SDK_INT>=30) {
                 android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.systemBars() | android.view.WindowInsets.Type.displayCutout());

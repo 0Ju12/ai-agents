@@ -57,6 +57,7 @@ from storage import (
 import workflow
 from workflow import execute
 import autopilot
+import reminders
 import cook_guide
 import food_tools
 import media
@@ -311,6 +312,14 @@ def change(state, cmd, arg, params, day, emit):
                 "unverified": facts["미확인"],
             }
         )
+    elif cmd == "알림추가":
+        reminders.add(state, params)
+    elif cmd == "알림삭제":
+        reminders.remove(state, arg)
+    elif cmd == "알림토글":
+        reminders.toggle(state, arg)
+    elif cmd == "영양제복용":
+        reminders.take(state, daily, arg, reminders.now_hhmm())
     elif cmd == "데모":
         autopilot.seed_demo(state, day)
     elif cmd == "영상링크":
@@ -422,6 +431,11 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
         message = follow[message] + " " + topic if topic else "확인 이전 메뉴나 지역을 먼저 알려주세요."
     intent = parse(message, emit)
     command, arg = intent.action, intent.argument
+    explicit = message.partition(" ")[0] in {"알림추가", "알림삭제", "알림토글", "영양제복용"}
+    spoken = None if explicit else reminders.from_text(message)  # '알려줘·알림'이 들어간 문장만
+    if spoken:  # "비타민D 아침 9시에 알려줘", "물 2시간마다 알려줘"
+        command, arg, params = "알림추가", "", spoken
+        emit("llm_decision", "알림 해석", method="rule", decision=spoken["kind"], reason="알림 요청 문장")
     if command == "확인" and any(t in message for t in kitchen_catalog(state)[0]):
         command, arg = "추천", ""  # 메뉴 이름을 말한 상황 문장은 추천·자동 진행으로
     emit("llm_decision", "요청 분류", method="rule", decision=command, reason="요청과 변경할 조건 확인")
@@ -562,6 +576,22 @@ def state(session_id: str = "default"):
     # 예시 냉장고: FRIDGE_DEMO=1 이고 아직 한 번도 채우지 않은 빈 냉장고면 화면이 /api/demo 를 부른다
     demo = os.getenv("FRIDGE_DEMO") == "1" and not current["lots"] and not current.get("demo_seeded")
     return {**snapshot(current), "데모 필요": demo}
+
+
+@app.get("/api/reminders")
+def reminder_list(session_id: str = "default"):
+    """오늘 알림 일정과 상태. Android 는 이 목록으로 시스템 알림을 예약한다."""
+    state = KitchenDB().read(session_id)[1]
+    now = reminders.now_hhmm()
+    return {"now": now, "items": reminders.overview(state, state["daily"].get(today().isoformat(), {}), now)}
+
+
+@app.get("/api/reminders/due")
+def reminder_due(session_id: str = "default", now: str | None = None):
+    """지금 보낼 알림(물은 진도보다 뒤처졌을 때만, 영양제는 아직 안 먹었을 때만)."""
+    now = now if now and reminders.HHMM.match(now) else reminders.now_hhmm()
+    state = KitchenDB().read(session_id)[1]
+    return {"now": now, "due": reminders.due(state, state["daily"].get(today().isoformat(), {}), now)}
 
 
 class DemoRequest(BaseModel):
