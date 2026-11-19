@@ -18,6 +18,12 @@ sys.path.insert(0, str(HERE.parent))
 from dotenv import load_dotenv
 
 load_dotenv(HERE / ".env", override=False)
+import mimetypes
+
+# Windows 는 확장자별 형식을 레지스트리에서 읽어 .js 가 text/plain 으로 나가는 PC 가 있다.
+# nosniff 헤더 때문에 브라우저가 스크립트를 실행하지 않으므로 형식을 직접 지정한다.
+for _ext, _type in {".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".webp": "image/webp", ".json": "application/json"}.items():
+    mimetypes.add_type(_type, _ext)
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse

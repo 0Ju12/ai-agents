@@ -94,3 +94,15 @@ def test_daily_journal(tmp_path,monkeypatch):
     assert run("물 100")["오늘 기록"]["water_ml"]==350
     assert run("수면 7.5")["오늘 기록"]["sleep_hours"]==7.5
     assert run("추천",session_id="other")["오늘 기록"]=={}
+
+
+def test_static_types_are_explicit():
+    """Windows 레지스트리와 상관없이 스크립트·스타일 형식이 맞아야 화면이 뜬다 (nosniff)."""
+    import mimetypes
+    mimetypes.add_type("text/plain", ".js")  # 잘못 등록된 PC 흉내
+    import importlib, app as module
+    importlib.reload(module)
+    client = TestClient(module.app)
+    assert client.get("/static/app.js").headers["content-type"].startswith("text/javascript")
+    assert client.get("/static/app.css").headers["content-type"].startswith("text/css")
+    assert client.get("/static/icons.svg").headers["content-type"].startswith("image/svg+xml")
