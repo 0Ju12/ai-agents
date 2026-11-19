@@ -466,6 +466,137 @@
         }
       }
     },
+    "/api/reminders": {
+      "get": {
+        "summary": "Reminder List",
+        "description": "오늘 알림 일정과 상태. Android 는 이 목록으로 시스템 알림을 예약한다.",
+        "operationId": "reminder_list_api_reminders_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reminders/due": {
+      "get": {
+        "summary": "Reminder Due",
+        "description": "지금 보낼 알림(물은 진도보다 뒤처졌을 때만, 영양제는 아직 안 먹었을 때만).",
+        "operationId": "reminder_due_api_reminders_due_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "now",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Now"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/demo": {
+      "post": {
+        "summary": "Demo",
+        "description": "예시 재료로 냉장고 채우기 (소비기한이 다른 18가지).",
+        "operationId": "demo_api_demo_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tools": {
       "get": {
         "summary": "Tools",
@@ -495,6 +626,275 @@
               "type": "string",
               "default": "default",
               "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/guide": {
+      "post": {
+        "summary": "Guide",
+        "description": "조리 모드 단계 카드. 내 레시피 목록(title) 또는 조회한 국내 레시피(recipe_id).",
+        "operationId": "guide_api_guide_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuideRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/guide/media": {
+      "post": {
+        "summary": "Guide Media",
+        "description": "조리 모드 영상 탭: YouTube 영상(단계별 시작 초)과 Instagram 게시물.",
+        "operationId": "guide_media_api_guide_media_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media": {
+      "get": {
+        "summary": "Media Photo",
+        "operationId": "media_photo_api_media_get",
+        "parameters": [
+          {
+            "name": "u",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "U"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/depth": {
+      "get": {
+        "summary": "Media Depth",
+        "operationId": "media_depth_api_media_depth_get",
+        "parameters": [
+          {
+            "name": "u",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "U"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/clip/{recipe_key}/{step}": {
+      "get": {
+        "summary": "Media Clip",
+        "operationId": "media_clip_api_media_clip__recipe_key___step__get",
+        "parameters": [
+          {
+            "name": "recipe_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Recipe Key"
+            }
+          },
+          {
+            "name": "step",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Step"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/photo": {
+      "post": {
+        "summary": "Photo",
+        "description": "식사·냉장고 사진 → 후보 목록. 저장은 사용자가 확인한 뒤 /api/chat 의 사진식사·입고로 한다.",
+        "operationId": "photo_api_photo_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/barcode/{code}": {
+      "get": {
+        "summary": "Barcode",
+        "description": "바코드 → 제품명·표시 영양 (Open Food Facts). 냉장고 등록 양식을 미리 채우는 데 쓴다.",
+        "operationId": "barcode_api_barcode__code__get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
             }
           }
         ],
@@ -716,6 +1116,63 @@
         ],
         "title": "ChatReply"
       },
+      "DemoRequest": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Session Id",
+            "default": "default"
+          }
+        },
+        "type": "object",
+        "title": "DemoRequest"
+      },
+      "GuideRequest": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Session Id",
+            "default": "default"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "recipe_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipe Id"
+          },
+          "servings": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Servings",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "title": "GuideRequest"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -728,6 +1185,36 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "MediaRequest": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Session Id",
+            "default": "default"
+          },
+          "menu": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Menu"
+          },
+          "steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 40,
+            "title": "Steps"
+          }
+        },
+        "type": "object",
+        "required": [
+          "menu"
+        ],
+        "title": "MediaRequest"
       },
       "Message": {
         "properties": {
@@ -769,6 +1256,34 @@
           "message"
         ],
         "title": "Message"
+      },
+      "PhotoRequest": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Session Id",
+            "default": "default"
+          },
+          "kind": {
+            "type": "string",
+            "pattern": "^(meal|fridge)$",
+            "title": "Kind"
+          },
+          "image": {
+            "type": "string",
+            "maxLength": 7000000,
+            "minLength": 100,
+            "title": "Image"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "image"
+        ],
+        "title": "PhotoRequest"
       },
       "PlanIn": {
         "properties": {

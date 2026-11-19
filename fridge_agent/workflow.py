@@ -41,7 +41,36 @@ def answer(request, output, emit):
     return {"답변": text[:800], **output}
 
 
-def execute(command, argument, local, emit, stock=(), events=None, request=None, speak=True):
+# 요청 조건을 명세서 2.2 의 세 갈래로 나눈다: 기준(날짜·시각), 선호(목표·부위·식단·지역), 제약(시간·예산·끝 시각)
+CONDITION_GROUPS = {
+    "기준": ("day", "start"),
+    "선호": ("goal", "body", "diet", "area"),
+    "제약": ("minutes", "end", "budget_krw"),
+}
+NODES = ("분석", "계획", "실행", "판정", "검증", "응답")
+
+
+def wire(graph):
+    """분석 → 계획 → (실행 → 판정)* → 검증 → 응답. 판정은 남은 작업이 있으면 실행으로 돌아간다(재계획)."""
+    graph.add_edge(START, "분석")
+    graph.add_edge("분석", "계획")
+    for label in ("계획", "판정"):
+        graph.add_conditional_edges(label, lambda s: "실행" if s["pending"] else "검증", {"실행": "실행", "검증": "검증"})
+    graph.add_edge("실행", "판정")
+    graph.add_edge("검증", "응답")
+    graph.add_edge("응답", END)
+    return graph
+
+
+def structure():
+    """그래프 구조(mermaid). python workflow.py 로 출력한다 (명세서 4.2 확인용)."""
+    g = StateGraph(Flow)
+    for label in NODES:
+        g.add_node(label, lambda s: {"pending": []})
+    return wire(g).compile().get_graph().draw_mermaid()
+
+
+def execute(command, argument, local, emit, stock=(), events=None, request=None, speak=True, conditions=None):
     events = events if events is not None else []
     if command in {"도움말", "확인"} or command == "검색" and not argument:
         emit("node_start", "응답")
@@ -67,6 +96,14 @@ def execute(command, argument, local, emit, stock=(), events=None, request=None,
         )
 
     base_tools = set()
+
+    def analyze(s):
+        # 앞 단계(해석)가 뽑은 조건만 정리한다. 요청에 없던 조건은 채우지 않는다.
+        given = {k: v for k, v in (conditions or {}).items() if v not in (None, "", [])}
+        groups = {g: {k: given[k] for k in keys if k in given} for g, keys in CONDITION_GROUPS.items()}
+        emit("conditions", "요청 조건", command=command, argument=argument, **groups,
+             tool_needed=command not in {"도움말", "확인"})
+        return {}
 
     def plan(s):
         tasks, reason = Planner.plan(command, argument, request, emit, stock)
@@ -246,18 +283,10 @@ def execute(command, argument, local, emit, stock=(), events=None, request=None,
         return wrapped
 
     graph = StateGraph(Flow)
-    for label, fn in [
-        ("계획", plan),
-        ("실행", perform),
-        ("판정", verify),
-        ("검증", audit),
-        ("응답", respond),
-    ]:
+    for label, fn in zip(NODES, (analyze, plan, perform, verify, audit, respond)):
         graph.add_node(label, traced(label, fn))
-    graph.add_edge(START, "계획")
-    for label in ("계획", "판정"):
-        graph.add_conditional_edges(label, lambda s: "실행" if s["pending"] else "검증")
-    graph.add_edge("실행", "판정")
-    graph.add_edge("검증", "응답")
-    graph.add_edge("응답", END)
-    return graph.compile().invoke({}, config={"recursion_limit": 40})["output"]
+    return wire(graph).compile().invoke({}, config={"recursion_limit": 40})["output"]
+
+
+if __name__ == "__main__":
+    print(structure())

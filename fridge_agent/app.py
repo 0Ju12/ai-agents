@@ -493,6 +493,7 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
     result = execute(
         command, arg, lambda: snap["계획"], emit, snap["냉장고"], steps,
         request=message if natural else None, speak=not auto,
+        conditions=intent.model_dump(include={"day", "start", "end", "minutes", "goal", "body", "diet", "area", "budget_krw"}, mode="json"),
     )
     if auto:
         meals, refs = kitchen_catalog(state)
