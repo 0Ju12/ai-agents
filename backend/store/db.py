@@ -121,7 +121,7 @@ class Store:
         return [dict(r) for r in rows]
 
     def get_session_logs(self, session_id: str) -> list[dict]:
-        rows = self._conn.execute("SELECT * FROM run_logs WHERE session_id=? ORDER BY seq", (session_id,)).fetchall()
+        rows = self._conn.execute("SELECT * FROM run_logs WHERE session_id=? ORDER BY id", (session_id,)).fetchall()
         return [{**dict(r), "payload": json.loads(r["payload"])} for r in rows]
 
     def delete_session_logs(self, session_id: str) -> int:

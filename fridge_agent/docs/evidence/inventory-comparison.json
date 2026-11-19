@@ -1,0 +1,70 @@
+{
+  "scope": "수기로 정답을 지정한 경계 조건 10개. 사용자 성과 또는 운영 정확도 추정에는 사용할 수 없음.",
+  "cases": [
+    {
+      "case": "빈 재고",
+      "expected": "부족",
+      "name_only": "부족",
+      "lots": "부족"
+    },
+    {
+      "case": "동일 용량",
+      "expected": "충족",
+      "name_only": "충족",
+      "lots": "충족"
+    },
+    {
+      "case": "1g 부족",
+      "expected": "부족",
+      "name_only": "충족",
+      "lots": "부족"
+    },
+    {
+      "case": "기한 지남",
+      "expected": "부족",
+      "name_only": "충족",
+      "lots": "부족"
+    },
+    {
+      "case": "오늘까지",
+      "expected": "충족",
+      "name_only": "충족",
+      "lots": "충족"
+    },
+    {
+      "case": "미계량",
+      "expected": "확인 필요",
+      "name_only": "충족",
+      "lots": "확인 필요"
+    },
+    {
+      "case": "두 포장 합계",
+      "expected": "충족",
+      "name_only": "충족",
+      "lots": "충족"
+    },
+    {
+      "case": "기한 혼합",
+      "expected": "부족",
+      "name_only": "충족",
+      "lots": "부족"
+    },
+    {
+      "case": "충족과 미계량",
+      "expected": "충족",
+      "name_only": "충족",
+      "lots": "충족"
+    },
+    {
+      "case": "2인분 부족",
+      "expected": "부족",
+      "name_only": "충족",
+      "lots": "부족"
+    }
+  ],
+  "correct": {
+    "name_only": 5,
+    "lots": 10
+  },
+  "n": 10
+}

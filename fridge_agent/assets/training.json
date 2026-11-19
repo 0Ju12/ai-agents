@@ -1,0 +1,131 @@
+[
+  {
+    "id": 12,
+    "title": "Seated Hip Adduction",
+    "category": "Legs",
+    "muscles": [
+      "Glutes"
+    ],
+    "equipment": [],
+    "authors": [
+      "flori",
+      "Araaosf"
+    ],
+    "license": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "url": "https://wger.de/en/exercise/12/view/"
+  },
+  {
+    "id": 20,
+    "title": "Arnold Shoulder Press",
+    "category": "Shoulders",
+    "muscles": [
+      "Shoulders"
+    ],
+    "equipment": [
+      "Dumbbell"
+    ],
+    "authors": [
+      "trzr23"
+    ],
+    "license": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "url": "https://wger.de/en/exercise/20/view/"
+  },
+  {
+    "id": 56,
+    "title": "Abdominal Stabilization",
+    "category": "Abs",
+    "muscles": [
+      "Abs"
+    ],
+    "equipment": [
+      "Gym mat"
+    ],
+    "authors": [
+      "wger.de",
+      "andikeller"
+    ],
+    "license": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "url": "https://wger.de/en/exercise/56/view/"
+  },
+  {
+    "id": 73,
+    "title": "Bench Press",
+    "category": "Chest",
+    "muscles": [
+      "Chest"
+    ],
+    "equipment": [
+      "Barbell",
+      "Bench"
+    ],
+    "authors": [
+      "sistab2"
+    ],
+    "license": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "url": "https://wger.de/en/exercise/73/view/"
+  },
+  {
+    "id": 75,
+    "title": "Benchpress Dumbbells",
+    "category": "Chest",
+    "muscles": [
+      "Chest"
+    ],
+    "equipment": [
+      "Bench",
+      "Dumbbell"
+    ],
+    "authors": [
+      "wger.de"
+    ],
+    "license": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "url": "https://wger.de/en/exercise/75/view/"
+  },
+  {
+    "id": 81,
+    "title": "Bent Over Dumbbell Rows (Single Arm)",
+    "category": "Back",
+    "muscles": [
+      "Lats"
+    ],
+    "equipment": [
+      "Bench",
+      "Dumbbell"
+    ],
+    "authors": [
+      "sebk"
+    ],
+    "license": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "url": "https://wger.de/en/exercise/81/view/"
+  },
+  {
+    "id": 92,
+    "title": "Biceps Curls With Dumbbell",
+    "category": "Arms",
+    "muscles": [
+      "Biceps"
+    ],
+    "equipment": [
+      "Dumbbell"
+    ],
+    "authors": [
+      "wger.de"
+    ],
+    "license": "https://creativecommons.org/licenses/by-sa/3.0/deed.en",
+    "url": "https://wger.de/en/exercise/92/view/"
+  },
+  {
+    "id": 124,
+    "title": "Braced Squat",
+    "category": "Legs",
+    "muscles": [
+      "Quads"
+    ],
+    "equipment": [],
+    "authors": [
+      "sevae"
+    ],
+    "license": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "url": "https://wger.de/en/exercise/124/view/"
+  }
+]

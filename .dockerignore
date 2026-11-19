@@ -1,0 +1,11 @@
+.git
+**/.env
+**/.env.*
+**/__pycache__
+**/*.sqlite3*
+**/homes
+**/data
+**/google-calendar.json
+android
+fridge_agent/docs
+fridge_agent/screens

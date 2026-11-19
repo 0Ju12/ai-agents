@@ -1,8 +1,12 @@
 # AI 에이전트 프로젝트
 
-## 냉장고 식단·운동 에이전트
+## 한끼 · 냉장고 생활 코치
 
-냉장고 재료와 가용 시간에 맞춰 식사와 운동을 추천합니다. 조리 분량과 실제 소요시간을 기록하면 남은 음식과 최근 조리시간을 다음 추천에 반영합니다.
+냉장고에 등록한 재료의 중량과 소비기한으로 식단·장바구니·운동을 추천하는 한국어 Android·웹 앱입니다. 조리와 섭취를 따로 기록하고 확인한 출처로 열량과 단백질을 계산합니다.
+
+![한끼 대시보드](fridge_agent/screens/today-desktop.webp)
+
+[모바일 화면](fridge_agent/screens/today-mobile.webp) · [프로젝트 실행](fridge_agent/README.md) · [3회차 요구사항 추적표](fridge_agent/docs/requirements.md) · [검증 결과](fridge_agent/docs/validation.md) · [설계도](fridge_agent/docs/design.md) · [Android APK](android/artifacts/hankki-debug.apk) · [발표자료](fridge_agent/docs/presentation.pptx)
 
 ```bash
 cd fridge_agent

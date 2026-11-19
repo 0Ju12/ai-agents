@@ -1,0 +1,71 @@
+{
+  "observed_kst": "2026-11-19T08:40:46+09:00",
+  "calls": [
+    {
+      "tool": "search",
+      "argument": "달걀",
+      "ok": true,
+      "source": "TheMealDB",
+      "error": null,
+      "fields": [
+        "id",
+        "title"
+      ],
+      "sample_id": "53120",
+      "ms": 484.3
+    },
+    {
+      "tool": "detail",
+      "from_search_id": "53120",
+      "ok": true,
+      "title": "Æbleskiver",
+      "ms": 343.3
+    },
+    {
+      "tool": "nutrition",
+      "argument": "3017620422003",
+      "ok": true,
+      "source": "Open Food Facts",
+      "error": null,
+      "fields": [
+        "product",
+        "kcal",
+        "protein_g",
+        "basis"
+      ],
+      "sample_id": null,
+      "ms": 1363.0
+    },
+    {
+      "tool": "usda",
+      "argument": "tofu",
+      "ok": true,
+      "source": "USDA FoodData Central · SR Legacy",
+      "error": null,
+      "fields": [
+        "id",
+        "title",
+        "url",
+        "nutrients_per_100g"
+      ],
+      "sample_id": 167722,
+      "ms": 1195.2
+    },
+    {
+      "tool": "wger",
+      "argument": "81",
+      "ok": true,
+      "source": "wger",
+      "error": null,
+      "fields": [
+        "id",
+        "title",
+        "equipment",
+        "url",
+        "license"
+      ],
+      "sample_id": 81,
+      "ms": 1326.9
+    }
+  ]
+}

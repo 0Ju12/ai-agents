@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import date,time
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ChatIn(BaseModel):
@@ -20,7 +21,24 @@ class ChatOut(BaseModel):
     steps: list[dict[str, Any]]  # 실행 단계·Tool 호출 이력 (F3019)
 
 
-class PlanIn(BaseModel):
+class PlanFields(BaseModel):
+    @field_validator("trip_date",check_fields=False)
+    @classmethod
+    def valid_day(cls,value):
+        if value is not None:date.fromisoformat(value)
+        return value
+    @field_validator("start_time","end_time",check_fields=False)
+    @classmethod
+    def valid_clock(cls,value):
+        if value is not None:time.fromisoformat(value)
+        return value
+    @model_validator(mode="after")
+    def ordered(self):
+        if self.start_time and self.end_time and self.start_time>=self.end_time:
+            raise ValueError("종료 시각은 시작 시각 이후로 입력하세요.")
+        return self
+
+class PlanIn(PlanFields):
     title: str = Field(min_length=1, max_length=100)
     trip_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
     start_time: str = Field(pattern=r"^\d{2}:\d{2}$")
@@ -28,8 +46,8 @@ class PlanIn(BaseModel):
     items: list[dict[str, Any]] = []
 
 
-class PlanPatch(BaseModel):
-    title: str | None = None
+class PlanPatch(PlanFields):
+    title: str | None = Field(default=None,min_length=1,max_length=100)
     trip_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     start_time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
     end_time: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")

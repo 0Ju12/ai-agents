@@ -1,0 +1,68 @@
+[
+  {
+    "scenario": "재료 충분",
+    "request": "추가 달걀, 두부",
+    "metric": "meal",
+    "expected": "두부 달걀찜",
+    "actual": "두부 달걀찜",
+    "pass": true,
+    "latency_ms": 49.5,
+    "calls": 1,
+    "replans": 0
+  },
+  {
+    "scenario": "후보 재계획",
+    "request": "검색 달걀",
+    "metric": "replans",
+    "expected": 1,
+    "actual": 1,
+    "pass": true,
+    "latency_ms": 45.4,
+    "calls": 3,
+    "replans": 1
+  },
+  {
+    "scenario": "상한",
+    "request": "검색 양파",
+    "metric": "replans",
+    "expected": 3,
+    "actual": 3,
+    "pass": true,
+    "latency_ms": 67.8,
+    "calls": 5,
+    "replans": 3
+  },
+  {
+    "scenario": "제공처 키 누락",
+    "request": "식품영양 두부",
+    "metric": "error",
+    "expected": "MISSING_KEY",
+    "actual": "MISSING_KEY",
+    "pass": true,
+    "latency_ms": 28.2,
+    "calls": 1,
+    "replans": 0
+  },
+  {
+    "scenario": "도구 불필요",
+    "request": "도움말",
+    "metric": "tool_calls",
+    "expected": 0,
+    "actual": 0,
+    "pass": true,
+    "latency_ms": 10.6,
+    "calls": 0,
+    "replans": 0
+  },
+  {
+    "scenario": "시간 제약",
+    "request": "시간 1",
+    "metric": "notice",
+    "expected": true,
+    "actual": true,
+    "pass": true,
+    "latency_ms": 29.9,
+    "calls": 1,
+    "replans": 0
+  }
+]

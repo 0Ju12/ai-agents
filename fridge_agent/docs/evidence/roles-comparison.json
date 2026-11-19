@@ -1,0 +1,32 @@
+{
+  "method": "동일한 외부 실패·성공 응답과 결정 스텁으로 제어 흐름만 비교. 모델 네트워크 지연·비용·정확도는 포함되지 않음.",
+  "rows": [
+    {
+      "mode": "변경 전 01d54bc",
+      "replans": 0,
+      "model_calls": 0,
+      "tool_calls": 3,
+      "found_detail": false,
+      "median_ms": 2.4,
+      "repetitions": 5
+    },
+    {
+      "mode": "현재 · Worker LLM 끔",
+      "replans": 0,
+      "model_calls": 0,
+      "tool_calls": 3,
+      "found_detail": false,
+      "median_ms": 2.9,
+      "repetitions": 5
+    },
+    {
+      "mode": "현재 · Worker LLM 켬",
+      "replans": 0,
+      "model_calls": 1,
+      "tool_calls": 5,
+      "found_detail": true,
+      "median_ms": 3.6,
+      "repetitions": 5
+    }
+  ]
+}

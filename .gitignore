@@ -8,3 +8,14 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+
+*.sqlite3*
+android/.gradle/
+**/build/
+android/local.properties
+*.jks
+*.keystore
+homes/
+google-calendar.json
+.env.*
+!.env.example

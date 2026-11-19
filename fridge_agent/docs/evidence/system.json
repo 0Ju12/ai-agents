@@ -1,0 +1,22 @@
+{
+  "observed_kst": "2026-11-19T09:00:37+09:00",
+  "pytest": "45 passed, 1 warning in 4.09s",
+  "browser": "PASS · mobile pantry, cook, intake, workout view, water, desktop shopping, calendar create, mobile execution trace",
+  "docker": "HTTP state + comma-separated intake + private browser isolation passed",
+  "android": {
+    "gradle": "8.11.1",
+    "tasks": [
+      "assembleDebug",
+      "bundleRelease"
+    ],
+    "compile_sdk": 36,
+    "build": "BUILD SUCCESSFUL",
+    "debug_apk_signature": "APK Signature Scheme v2",
+    "release_aab_signature": "unsigned",
+    "physical_device": "not tested",
+    "sha256": {
+      "hankki-unsigned.aab": "d9c5ba4df240ef548da7b448f31c6b7eb61ad3e25041232277a39b961632b2f7",
+      "hankki-debug.apk": "e0cf1e45256ea23375f649756cb7e14437efd20aae48fc3ee76a004bf27cf150"
+    }
+  }
+}
