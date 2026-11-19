@@ -86,6 +86,31 @@ def test_allergen_diet_feedback_week():
     assert len(api.run("주간계획")["계획"]["주간"]) == 7
 
 
+@pytest.mark.parametrize("title,settings", [
+    ("소고기 미역국", {"diet": "식물성"}),
+    ("연어 스테이크", {"diet": "식물성"}),
+    ("김치전", {"avoid": ["밀"]}),
+])
+def test_food_restrictions_cover_expanded_catalog(title, settings):
+    api.run("설정", params={**settings, "minutes": 120})
+    result = api.run("메뉴 " + title)["계획"]
+    assert not result.get("메뉴")
+    assert result["제외 후보"][0]["사유"].startswith(("식물성 조건", "제외 식재료"))
+
+
+def test_unverified_external_candidates_excluded_for_restricted_diet(monkeypatch):
+    monkeypatch.setenv("FOODSAFETY_API_KEY", "fixture")
+    lookup = Mock(return_value={"ok": True, "data": [
+        {"id": "demo", "메뉴": "두부국", "재료·분량": "두부 100g, 새우 10g", "조리 순서": ["끓인다"]}
+    ]})
+    monkeypatch.setattr(food_tools, "call", lookup)
+    base = {"lots": []}
+    for settings in ({"diet": "식물성"}, {"avoid": ["갑각류"]}):
+        assert api.korean_options({**base, **settings}, "2026-11-19", Mock(), "두부") == []
+    lookup.assert_not_called()
+    assert api.korean_options(base, "2026-11-19", Mock(), "두부")[0]["메뉴"] == "두부국"
+
+
 def test_plans_calendar_and_deadline():
     c = TestClient(api.app)
     day = today().isoformat()

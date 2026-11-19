@@ -82,7 +82,7 @@ def check(out, base, executable):
         page.get_by_role("heading", name="나의 냉장고").wait_for()
         page.goto(base + "/#recipes")
         page.locator("#meal-filter").fill("김치볶음밥")
-        page.get_by_role("button", name="선택", exact=True).click()
+        page.locator('#meal-list button[data-do="choose"][data-arg="김치볶음밥"]').click()
         page.get_by_role("button", name="부족분 장바구니에 담기").click()
         page.get_by_role("button", name="장바구니에 담기", exact=True).click()
         page.locator("dialog[open]").wait_for(state="hidden")
@@ -97,16 +97,69 @@ def check(out, base, executable):
         page.get_by_text("계획을 저장했어요.").wait_for()
         page.keyboard.press("Escape")
         page.set_viewport_size({"width": 390, "height": 844})
-        page.goto(base + "/#today")
-        page.get_by_role("button", name="한끼 코치에게 물어보기").click()
-        d = page.locator("dialog[open]")
-        d.locator("textarea").fill("도움말")
-        d.get_by_role("button", name="코치에게 보내기").click()
-        d.get_by_text("이번 실행 과정", exact=False).click()
+        page.goto(base + "/#agent")
+        page.get_by_role("heading", name="한끼 코치").wait_for()
+        welcome = page.locator(".bubble.welcome")
+        for role in ("ai", "chef", "trainer"):
+            image = welcome.locator(f".avatar.{role} img")
+            image.evaluate("(img) => img.decode()")
+            assert image.get_attribute("src") == f"/static/personas/{role}.webp"
+        snap("coach-mobile")
+
+        def ask(message, role):
+            count = page.locator(".chat-log .agent[id]").count()
+            page.get_by_label("지금 상황").fill(message)
+            page.get_by_role("button", name="보내기", exact=True).click()
+            card = page.locator(".chat-log .agent[id]").nth(count)
+            card.wait_for()
+            avatar = card.locator(f".avatar.{role} img")
+            avatar.evaluate("(img) => img.decode()")
+            assert avatar.get_attribute("src") == f"/static/personas/{role}.webp"
+            return card
+
+        ask("안녕", "ai")
+        trainer = ask("어깨 운동 30분 하고 싶어", "trainer")
+        trainer.locator(".persona-name").evaluate("(el) => el.scrollIntoView({block: 'start'})")
+        snap("trainer-mobile")
+        ask("헬스장 강남역", "trainer").get_by_role("link", name="카카오맵 검색").wait_for()
+        ask("영상 두부구이", "chef").get_by_role("link", name="YouTube 검색").wait_for()
+        chef = ask("두부로 저녁 추천해줘", "chef")
+        chef.locator(".persona-name").evaluate("(el) => el.scrollIntoView({block: 'start'})")
+        snap("chef-mobile")
+        ask("레시피 두부구이", "chef").get_by_role("button", name="결과 자세히 보기").click()
+        page.locator("dialog[open]").get_by_text("이번 실행 과정", exact=False).click()
         snap("trace-mobile")
+        page.keyboard.press("Escape")
+
+        def water():
+            return page.request.get(base + "/api/state").json()["건강"]["totals"]["water_ml"]["value"]
+
+        before = water()
+        ids = []
+
+        def lose_first_reply(route):
+            ids.append(route.request.post_data_json["request_id"])
+            response = route.fetch()
+            assert response.ok
+            if len(ids) == 1:
+                route.abort()
+            else:
+                route.fulfill(response=response)
+
+        page.route("**/api/chat", lose_first_reply)
+        page.get_by_label("지금 상황").fill("물 500ml")
+        page.get_by_role("button", name="보내기", exact=True).click()
+        retry = page.get_by_role("button", name="다시 보내기")
+        retry.wait_for()
+        assert water() == before + 500
+        page.reload()
+        retry.click()
+        retry.wait_for(state="hidden")
+        assert len(ids) == 2 and ids[0] == ids[1]
+        assert water() == before + 500
         assert not errs, errs
         print(
-            "PASS · mobile pantry, cook, intake, workout view, water, desktop shopping, calendar create, mobile execution trace"
+            "PASS · pantry, cook, intake, exercise, water, shopping, calendar, coach portraits, search cards, execution trace, retry after reload"
         )
         b.close()
 
@@ -123,7 +176,7 @@ if __name__ == "__main__":
         base = f"http://127.0.0.1:{port}"
         dest = arg.screens or Path(tmp) / "screens"
         dest.mkdir(parents=True, exist_ok=True)
-        env = {**os.environ, "FRIDGE_DATA_DIR": tmp, "FRIDGE_MODE": "local", "PORT": str(port)}
+        env = {**os.environ, "FRIDGE_DATA_DIR": tmp, "FRIDGE_MODE": "local", "FRIDGE_DEMO": "0", "PORT": str(port)}
         server = subprocess.Popen(
             [sys.executable, str(HERE / "app.py")],
             env=env,

@@ -200,7 +200,9 @@ def import_recipe(state, params):
 
 def korean_options(state, day, emit, term=None):
     """소비기한이 가장 급한 재료로 식약처 레시피를 찾아 부족 재료 수로 줄 세운다(키가 있을 때만, 24시간 캐시)."""
-    if not os.getenv("FOODSAFETY_API_KEY"):
+    # 외부 원문에는 복합 원재료와 식이 제한 태그가 없어 제한 식단의 자동 후보로 판정할 수 없다.
+    # 직접 요청한 레시피 조회는 그대로 제공한다.
+    if not os.getenv("FOODSAFETY_API_KEY") or state.get("avoid") or state.get("diet") == "식물성":
         return []
     from agent_roles import recipe_ingredients
     from domain.kitchen import inventory

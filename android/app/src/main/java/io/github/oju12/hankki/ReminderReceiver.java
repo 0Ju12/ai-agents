@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.webkit.CookieManager;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -49,7 +50,13 @@ public class ReminderReceiver extends BroadcastReceiver {
             if (cookie != null) con.setRequestProperty("Cookie", cookie);
             if (con.getResponseCode() != 200) return null;
             try (InputStream in = con.getInputStream()) {
-                JSONArray due = new JSONObject(new String(in.readAllBytes(), StandardCharsets.UTF_8)).getJSONArray("due");
+                ByteArrayOutputStream body = new ByteArrayOutputStream();
+                byte[] buffer = new byte[4096];
+                int count;
+                while ((count = in.read(buffer)) != -1) {
+                    body.write(buffer, 0, count);
+                }
+                JSONArray due = new JSONObject(body.toString(StandardCharsets.UTF_8.name())).getJSONArray("due");
                 for (int i = 0; i < due.length(); i++) {
                     JSONObject d = due.getJSONObject(i);
                     if (id.equals(d.optString("id"))) return new String[]{d.optString("title"), d.optString("body")};

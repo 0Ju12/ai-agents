@@ -30,7 +30,8 @@ const hhmmOf = (t) => new Date(t).toLocaleTimeString("ko-KR", { hour: "2-digit",
 function compact(msg, r) {
   // 서버 응답을 대화 카드에 필요한 값만 남겨 저장한다
   const p = r["계획"] || {},
-    base = { role: "agent", id: uid(), at: Date.now(), answer: p["답변"] || "" };
+    command = (r["추적"] || []).find((e) => e.name === "요청 분류")?.payload?.decision,
+    base = { role: "agent", id: uid(), at: Date.now(), command, answer: p["답변"] || "" };
   if (p["자동 진행"])
     return {
       ...base,
@@ -48,13 +49,22 @@ function compact(msg, r) {
       cart: Object.keys(r["장바구니"] || {}).length,
     };
   if (p["운동 루틴"]) return { ...base, kind: "workout", routine: p["운동 루틴"], options: p["운동 선택지"] || [], note: p["안내"] || "" };
-  if (p["검색어"] && p["직접 검색"]) return { ...base, kind: "shopping", term: p["검색어"], links: p["직접 검색"], items: Object.values(p["자료"] || {}).flatMap((x) => (x.ok ? x.data.slice(0, 3) : [])), budget: p["예산 안내"] || "" };
+  if (p["검색어"] && p["직접 검색"]) {
+    const providers = { 쇼핑: ["naver", "coupang"], 영상: ["youtube", "instagram"], 헬스장: ["gyms"] };
+    const items = (providers[command] || []).flatMap((key) => {
+      const result = p["자료"]?.[key];
+      return result?.ok && Array.isArray(result.data) ? result.data.slice(0, 3) : [];
+    });
+    return { ...base, kind: "search", term: p["검색어"], links: p["직접 검색"], items, budget: p["예산 안내"] || "" };
+  }
   if (p["근거 문서"]) return { ...base, kind: "knowledge", answer: p["답변"] || "", evidence: p["근거 문서"], note: p["안내"] || "", source: p["출처"] || "" };
   if ((r["추적"] || []).some((e) => e.name === "건강 안내")) return { ...base, kind: "health", note: p["안내"] || "" };
   if (p["주간"]) return { ...base, kind: "weekly", days: p["주간"] };
   const reminder = (r["추적"] || []).some((e) => e.name === "알림 해석");
   if (reminder) return { ...base, kind: "reminder", note: "알림을 만들었어요. 기록 탭에서 시간과 상태를 확인할 수 있어요." };
-  const text = p["답변"] || p["안내"] || (p["메뉴"] ? `${p["메뉴"]} · ${p["판단 기준"] || ""}` : "") || "반영했어요.";
+  const lookup = p["조회"];
+  const lookupNote = lookup?.ok === false ? (errors[lookup.error] || "조회 결과를 가져오지 못했어요.") : lookup?.ok ? "조회 결과를 확인하세요." : "";
+  const text = p["답변"] || p["안내"] || lookupNote || (p["메뉴"] ? `${p["메뉴"]} · ${p["판단 기준"] || ""}` : "") || "반영했어요.";
   return { ...base, kind: "text", note: text, detail: !!(p["자료"] || p["조회"] || p["요청 메뉴"] || p["주간"]), msg };
 }
 
@@ -70,8 +80,7 @@ function chipsFor() {
   ];
 }
 
-// 답변 주제에 따라 다른 전문가 캐릭터가 답한다. 기본은 한끼 고유 일러스트(실존 인물·영화 캐릭터 아님),
-// static/personas/ 에 사용 권리가 있는 이미지를 넣으면 그 이미지를 쓴다.
+// 카탈로그의 코치 사진을 표시하고 사진이 설정되지 않은 역할에는 기본 아이콘을 쓴다.
 const PERSONAS = {
   chef: {
     name: "한끼 셰프",
@@ -89,7 +98,30 @@ const PERSONAS = {
     svg: `<svg viewBox="0 0 64 64" aria-hidden="true" class="ai-orb"><defs><radialGradient id="hk-ai-core"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#9ff0ff"/><stop offset="1" stop-color="#1fb6ea"/></radialGradient><radialGradient id="hk-ai-glow"><stop offset="0" stop-color="#2ccbff" stop-opacity=".55"/><stop offset="1" stop-color="#2ccbff" stop-opacity="0"/></radialGradient></defs><circle cx="32" cy="32" r="32" fill="#0a1622"/><path d="M0 12h64M0 22h64M0 32h64M0 42h64M0 52h64M12 0v64M22 0v64M32 0v64M42 0v64M52 0v64" stroke="#12304a" stroke-width=".5"/><circle cx="32" cy="32" r="24" fill="url(#hk-ai-glow)"/><g class="ai-ring"><circle cx="32" cy="32" r="22" fill="none" stroke="#2ccbff" stroke-opacity=".6" stroke-width=".9" stroke-dasharray="10 3 2 3"/></g><circle cx="32" cy="32" r="15.5" fill="none" stroke="#56dcff" stroke-width="5" stroke-dasharray="6.1 2"/><g class="ai-ring rev"><circle cx="32" cy="32" r="10.5" fill="none" stroke="#bff6ff" stroke-width="1.2" stroke-dasharray="3 2.5"/></g><circle cx="32" cy="32" r="6.5" fill="url(#hk-ai-core)"/><path d="M32 4v5M32 55v5M4 32h5M55 32h5" stroke="#56dcff" stroke-width="1.4" stroke-linecap="round"/></svg>`,
   },
 };
-const personaOf = (m) => (["auto", "shopping", "weekly"].includes(m?.kind) ? "chef" : m?.kind === "workout" ? "trainer" : "ai");
+const CHEF_COMMANDS = new Set("추천 집밥 외식 메뉴 대체 레시피 레시피저장 식품영양 검색 영양 미국영양 요리코치 조리 섭취 섭취삭제 사진식사 쇼핑 영상 영상링크 주간계획 장바구니담기 장바구니삭제 구매완료 입고 포장삭제 추가 삭제".split(" "));
+const TRAINER_COMMANDS = new Set("운동 운동완료 운동자료 헬스장 부위 내루틴저장 내루틴삭제".split(" "));
+
+function searchCommand(m) {
+  if (m.command) return m.command;
+  // 이전 버전은 세 종류의 검색을 모두 shopping 카드로 저장했다.
+  if (m.links?.["카카오맵 검색"]) return "헬스장";
+  if (m.links?.["YouTube 검색"]) return "영상";
+  return "쇼핑";
+}
+
+function personaOf(m) {
+  if (m.kind === "workout") return "trainer";
+  if (["auto", "weekly"].includes(m.kind)) return "chef";
+  if (m.kind === "knowledge") {
+    const topic = m.evidence?.[0]?.topic;
+    if (topic === "운동") return "trainer";
+    if (topic === "영양" || topic === "식품안전") return "chef";
+  }
+  const command = ["shopping", "search"].includes(m.kind) ? searchCommand(m) : m.command || m.msg?.split(" ")[0];
+  if (TRAINER_COMMANDS.has(command)) return "trainer";
+  if (CHEF_COMMANDS.has(command)) return "chef";
+  return "ai";
+}
 const avatar = (key) => {
   const img = typeof catalog !== "undefined" && catalog?.personas?.[key];
   return `<div class="avatar persona ${key}" title="${PERSONAS[key].name}">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : PERSONAS[key].svg}</div>`;
@@ -178,8 +210,17 @@ function agentCard(m) {
     body += `<div class="workout-card"><div class="wk-head"><div class="wk-mini">${ex[0] && typeof figureSVG === "function" ? figureSVG(motionOf(ex[0].name), null, { label: ex[0].name }) : disk("dumbbell", "peach")}</div><div><strong>${esc(r.move || r.summary)}</strong><small>${esc(r.level || "")} · ${esc(r.body)} · 휴식 포함 ${r.minutes}분</small></div></div>${r.steps.length ? `<ol class="step-list">${r.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>` : `<p>${esc(r.summary)}</p>`}</div>
       <div class="cta">${r.steps.length ? btn("운동 모드 시작", "wkStart", "btn", "timer") : ""}${btn("운동 탭에서 보기", "workout", "btn alt", "dumbbell")}</div>
       ${(m.options || []).length ? `<p class="sec">다른 선택지</p><div class="picks">${m.options.map((o) => `<article class="pick"><div><strong>${esc(o.title)}</strong><small>${esc(o.why)} · ${esc(o.summary || "")}</small></div>${btn("이걸로", "wkApply", "chip", "", JSON.stringify(o.apply))}</article>`).join("")}</div>` : ""}`;
-  } else if (m.kind === "shopping") {
-    body += `<p><strong>${esc(m.term)}</strong> 상품을 찾아봤어요.</p>${m.items.length ? `<div class="picks">${m.items.map((x) => `<article class="pick"><div><strong>${x.url ? a(x.title, x.url) : esc(x.title)}</strong><small>${x.price_krw != null ? fmt(x.price_krw) + "원 · " : ""}${esc(x.merchant || "")}${x["100g당 가격"] ? " · 100g당 " + fmt(x["100g당 가격"]) + "원" : ""}</small></div></article>`).join("")}</div>` : '<p class="hint">쇼핑 API 키가 없어 상품 목록 대신 바로 검색할 수 있는 링크를 드려요.</p>'}<div class="cta">${Object.entries(m.links).map(([k, u]) => `<a class="btn alt" href="${esc(u)}" rel="noopener noreferrer">${esc(k)} ↗</a>`).join("")}</div>${m.budget ? `<p class="footnote">${esc(m.budget)}</p>` : ""}`;
+  } else if (m.kind === "search" || m.kind === "shopping") {
+    const command = searchCommand(m);
+    const label = { 헬스장: "근처 헬스장", 영상: "레시피 영상", 쇼핑: "장보기 상품" }[command];
+    const rows = m.items.map((x) => {
+      const details = [x.address || x.channel || x.merchant, x.published, x.price_krw != null && fmt(x.price_krw) + "원", x["100g당 가격"] && "100g당 " + fmt(x["100g당 가격"]) + "원"].filter(Boolean);
+      return `<article class="pick"><div><strong>${a(x.title, x.url)}</strong><small>${esc(details.join(" · "))}</small></div></article>`;
+    });
+    body += `<p><strong>${esc(m.term)}</strong> · ${esc(label)}</p>`;
+    body += rows.length ? `<div class="picks">${rows.join("")}</div>` : '<p class="hint">조회된 항목이 없어요. 아래 링크에서 직접 검색할 수 있어요.</p>';
+    body += `<div class="cta">${Object.entries(m.links).map(([k, u]) => a(k, u)).join("")}</div>`;
+    if (m.budget) body += `<p class="footnote">${esc(m.budget)}</p>`;
   } else if (m.kind === "knowledge") {
     body += m.evidence.length
       ? `<p class="sec">근거 문서</p><div class="evidence">${m.evidence.map((d) => `<article><strong>${esc(d.title)}</strong><p>${esc(d.excerpt)}</p><small>${a(d.source, d.url)} · 거리 ${d.distance}</small></article>`).join("")}</div><p class="footnote">${esc(m.source)} · 일반 생활 참고 정보예요.</p>`
@@ -191,7 +232,7 @@ function agentCard(m) {
   } else if (m.kind === "reminder") {
     body += `<p>${esc(m.note)}</p><div class="cta">${btn("알림 보기", "journal", "btn alt", "notebook-pen")}</div>`;
   } else if (m.kind === "error") {
-    body += `<p>${esc(m.note)}</p><div class="cta">${btn("다시 보내기", "agentRetry", "btn alt", "send", m.retry)}</div>`;
+    body += `<p>${esc(m.note)}</p><div class="cta">${btn("다시 보내기", "agentRetry", "btn alt", "send", m.id)}</div>`;
   } else {
     body += m.answer ? "" : `<p>${esc(m.note)}</p>`;
     body += m.detail && results[m.id] ? `<div class="cta">${btn("결과 자세히 보기", "agentDetail", "btn alt", "arrow-up-right", m.id)}</div>` : "";
@@ -223,10 +264,11 @@ function scrollChat() {
   if (route() === "agent") window.scrollTo(0, document.body.scrollHeight);
 }
 
-async function agentAsk(text) {
+async function agentAsk(text, failed = null) {
   text = String(text || "").trim();
   if (!text || waiting) return;
-  thread.push({ role: "user", text, at: Date.now() });
+  const requestId = failed?.requestId || uid();
+  if (!failed) thread.push({ role: "user", text, at: Date.now() });
   saveThread();
   waiting = { step: 0 };
   if (route() !== "agent") go("agent");
@@ -240,15 +282,17 @@ async function agentAsk(text) {
     if (box) box.outerHTML = `<ol class="progress-steps">${STEPS.map((s, i) => `<li class="${i < waiting.step ? "done" : i === waiting.step ? "on" : ""}">${esc(s)}</li>`).join("")}</ol>`;
   }, 1400);
   try {
-    const r = await api("/api/chat", "POST", { message: text, request_id: uid() });
+    const r = await api("/api/chat", "POST", { message: text, request_id: requestId });
     last = r;
-    st = { ...r, 계획: r["현재 추천"] };
+    st = failed ? await api("/api/state") : { ...r, 계획: r["현재 추천"] };
+    if (failed) thread = thread.filter((entry) => entry !== failed);
     const m = compact(text, r);
     results[m.id] = r;
     thread.push(m);
     if (m.kind === "auto" && m.menu) loadMedia(m.menu);
   } catch (err) {
-    thread.push({ role: "agent", id: uid(), at: Date.now(), kind: "error", note: err.message, retry: text });
+    if (failed) Object.assign(failed, { note: err.message, requestId });
+    else thread.push({ role: "agent", id: uid(), at: Date.now(), kind: "error", note: err.message, retry: text, requestId });
   } finally {
     waiting = null;
     clearInterval(waitTimer);
@@ -306,7 +350,10 @@ function agentResult(msg, r) {
 Object.assign(action, {
   agentSay: (text) => agentAsk(text),
   situation: (text) => agentAsk(text),
-  agentRetry: (text) => agentAsk(text),
+  agentRetry: (id) => {
+    const failed = findMsg(id);
+    if (failed?.kind === "error") return agentAsk(failed.retry, failed);
+  },
   agentClear: () => {
     if (!confirm("이 기기의 코치 대화 기록을 지울까요? (실행 로그는 서버에 남아요)")) return;
     thread = [];
