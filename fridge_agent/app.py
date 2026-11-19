@@ -54,7 +54,9 @@ from storage import (
     RevisionConflict,
     today,
 )
+import workflow
 from workflow import execute
+import autopilot
 import cook_guide
 import food_tools
 import media
@@ -309,6 +311,10 @@ def change(state, cmd, arg, params, day, emit):
                 "unverified": facts["미확인"],
             }
         )
+    elif cmd == "데모":
+        autopilot.seed_demo(state, day)
+    elif cmd == "영상링크":
+        autopilot.add_link(state, params.get("menu"), params.get("url"))
     elif cmd == "건강연동":
         health_import(daily, params, day)
     elif cmd == "운동완료":
@@ -416,6 +422,8 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
         message = follow[message] + " " + topic if topic else "확인 이전 메뉴나 지역을 먼저 알려주세요."
     intent = parse(message, emit)
     command, arg = intent.action, intent.argument
+    if command == "확인" and any(t in message for t in kitchen_catalog(state)[0]):
+        command, arg = "추천", ""  # 메뉴 이름을 말한 상황 문장은 추천·자동 진행으로
     emit("llm_decision", "요청 분류", method="rule", decision=command, reason="요청과 변경할 조건 확인")
     emit("node_end", "분석")
     day = today().isoformat()
@@ -467,9 +475,24 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
     if command == "헬스장" and not arg:
         arg = state.get("area") or ""
     natural = message.strip().partition(" ")[0] not in COMMANDS  # 명령어가 아니면 모델이 계획·응답에 참여
+    auto = natural and command in {"추천", "집밥", "메뉴"}  # 상황 문장 → 자동 진행
     result = execute(
-        command, arg, lambda: snap["계획"], emit, snap["냉장고"], steps, request=message if natural else None
+        command, arg, lambda: snap["계획"], emit, snap["냉장고"], steps,
+        request=message if natural else None, speak=not auto,
     )
+    if auto:
+        meals, refs = kitchen_catalog(state)
+        limit = window.get("available") if "start" in window else None
+
+        def find_media(menu):
+            count = len(meals.get(menu, {}).get("steps", []))
+            found = video_guide.media_for(menu, meals.get(menu, {}).get("steps", []), emit)
+            return autopilot.merge_links(found, state.get("media_links", {}).get(menu, []), count)
+
+        named = next((t for t in sorted(meals, key=len, reverse=True) if t in message), None)
+        extra = autopilot.run(state, message, meals, refs, day, emit, limit, find_media, named)
+        snap = snapshot(state)
+        result = workflow.answer(message, {**snap["계획"], **extra}, emit)
     if command == "레시피" and result.get("조회", {}).get("ok"):
         state["external_recipes"] = {str(x["id"]): x for x in result["조회"]["data"] if x.get("id")}
     if command == "쇼핑":
@@ -535,7 +558,20 @@ def chat(body: Message):
 
 @app.get("/api/state", response_model=ScreenState)
 def state(session_id: str = "default"):
-    return snapshot(KitchenDB().read(session_id)[1])
+    current = KitchenDB().read(session_id)[1]
+    # 예시 냉장고: FRIDGE_DEMO=1 이고 아직 한 번도 채우지 않은 빈 냉장고면 화면이 /api/demo 를 부른다
+    demo = os.getenv("FRIDGE_DEMO") == "1" and not current["lots"] and not current.get("demo_seeded")
+    return {**snapshot(current), "데모 필요": demo}
+
+
+class DemoRequest(BaseModel):
+    session_id: str = Field(default="default", min_length=1, max_length=80)
+
+
+@app.post("/api/demo")
+def demo(body: DemoRequest):
+    """예시 재료로 냉장고 채우기 (소비기한이 다른 18가지)."""
+    return run("데모", session_id=body.session_id)
 
 
 @app.get("/api/tools")
@@ -613,7 +649,10 @@ def guide_media(body: MediaRequest):
     """조리 모드 영상 탭: YouTube 영상(단계별 시작 초)과 Instagram 게시물."""
     emit, steps = tracer(body.session_id)
     emit("node_start", "조리 영상")
-    result = video_guide.media_for(body.menu.strip(), [s[:300] for s in body.steps], emit)
+    menu = body.menu.strip()
+    result = video_guide.media_for(menu, [s[:300] for s in body.steps], emit)
+    links = KitchenDB().read(body.session_id)[1].get("media_links", {}).get(menu, [])
+    result = autopilot.merge_links(result, links, len(body.steps))
     emit("node_end", "조리 영상")
     return {**result, "추적": steps}
 
@@ -714,5 +753,7 @@ def privacy():
 
 if __name__ == "__main__":
     import uvicorn
+
+    os.environ.setdefault("FRIDGE_DEMO", "1")  # python app.py 로 켜면 빈 냉장고를 예시 재료로 채운다
 
     uvicorn.run(app, host="127.0.0.1", port=int(os.getenv("PORT", "8000")))

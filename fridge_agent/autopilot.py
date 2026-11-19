@@ -1,0 +1,205 @@
+"""상황을 말하면 Agent 가 이어서 진행하는 일들 (자동 진행).
+
+    "퇴근했는데 20분밖에 없어. 단백질 위주로 먹고 싶어"
+      → 조건 반영(시간·식단) → 추천 후보 3개와 근거 → 1순위 메뉴 확정
+      → 부족 재료 장바구니 담기 → 조리 영상·인기 게시물 찾기 → 조리 모드 준비
+
+원칙
+- 무엇을 할지는 규칙이 기본안을 만들고, 모델(있으면)이 '할 일 목록과 인분'만 고른다.
+  모델이 고를 수 있는 작업은 아래 ACTIONS 뿐이고, 실행 조건(부족 재료가 있는지 등)은 코드가 다시 확인한다.
+- 재고·분량·시간 판단은 모두 기존 도메인 코드(select_meal, add_shortages)가 한다.
+- 실행한 일은 '자동 진행' 목록으로 돌려주고, 되돌리는 명령을 함께 준다.
+"""
+
+import os
+import re
+from datetime import date, timedelta
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+import gateway
+from domain.kitchen import add_lot, inventory, select_meal
+from domain.shopping import add_shortages
+
+ACTIONS = ("메뉴확정", "장바구니", "영상", "조리모드")
+BUY_WORDS = ("사야", "장보", "구매", "주문", "없으면", "사줘", "담아")
+NO_BUY_WORDS = ("사지 말", "장보기 말", "구매 말", "있는 걸로만", "있는 재료로만", "있는 것만")
+
+# 예시 냉장고: 소비기한이 제각각이라 '임박 재료부터' 추천이 드러나게 했다 (오늘 기준 상대 날짜).
+DEMO_LOTS = [
+    ("두부", 300, 1), ("달걀", 500, 9), ("대파", 80, 3), ("양파", 400, 14), ("김치", 600, 25),
+    ("밥", 420, 2), ("플레인요거트", 450, 4), ("바나나", 240, 2), ("시금치", 150, 2), ("닭가슴살", 200, 3),
+    ("토마토", 300, 5), ("오이", 140, 6), ("식용유", 500, 180), ("간장", 500, 300), ("참기름", 160, 200),
+    ("오트밀", 400, 120), ("감자", 450, 20), ("당근", 200, 12),
+]
+
+
+def seed_demo(state, day):
+    """예시 재료로 냉장고를 다시 채운다(기존 포장·장바구니는 비운다)."""
+    base = date.fromisoformat(day)
+    state["lots"], state["cart"] = [], {}
+    for name, grams, days in DEMO_LOTS:
+        add_lot(state, name, grams, "g", (base + timedelta(days=days)).isoformat())
+    state["demo_seeded"] = True
+
+
+def ranked(state, meals, refs, day, limit=None, top=3):
+    """조건을 통과한 메뉴를 select_meal 과 같은 기준으로 줄 세우고, 사람이 읽을 근거를 붙인다."""
+    available = inventory(state, day)
+    out = []
+    for title in meals:
+        plan = select_meal({**state, "wanted": title}, meals, refs, day, limit)
+        if not plan.get("메뉴"):
+            continue
+        used = [k for k in plan["예시 1인분(g)"] if k in available]
+        soon = sorted(
+            ((k, (date.fromisoformat(available[k]["earliest"]) - date.fromisoformat(day)).days) for k in used if available[k].get("earliest")),
+            key=lambda x: x[1],
+        )
+        reasons = []
+        if soon and soon[0][1] <= 3:
+            reasons.append(f"기한 임박 {soon[0][0]} D-{soon[0][1]}" if soon[0][1] > 0 else f"{soon[0][0]} 오늘까지")
+        reasons.append("재료 모두 보유" if not plan["부족분"] else f"부족 {len(plan['부족분'])}종({', '.join(plan['부족분'])})")
+        reasons.append(f"조리 {plan['조리시간(분)']}분")
+        protein = plan["영양"].get("protein_g")
+        if protein is not None:
+            reasons.append(f"단백질 {protein:g}g")
+        key = (
+            len(plan["부족분"]),
+            soon[0][1] if soon else 999,
+            -(protein or 0) if state.get("diet") == "단백질 우선" else 0,
+            plan["조리시간(분)"],
+        )
+        out.append((key, {"메뉴": plan["메뉴"], "근거": reasons, "부족분": plan["부족분"], "조리시간(분)": plan["조리시간(분)"], "예상 kcal": plan["예상 kcal"], "단백질(g)": protein}))
+    out.sort(key=lambda x: x[0])
+    return [x[1] for x in out[:top]]
+
+
+class AutoPlan(BaseModel):
+    actions: list[Literal["메뉴확정", "장바구니", "영상", "조리모드"]] = Field(default_factory=list, max_length=4)
+    servings: int = Field(default=1, ge=1, le=6, description="사용자가 말한 인원·인분. 말하지 않았으면 1")
+    reason: str = Field(default="", max_length=160)
+
+
+PROMPT = (
+    "사용자의 상황 문장을 보고 이어서 진행할 작업을 고른다. 메뉴확정(1순위 메뉴로 정하기), 장바구니(부족 재료 담기), "
+    "영상(조리 영상·인기 게시물 찾기), 조리모드(단계별 안내 준비) 중에서만 고른다. "
+    "사지 말라고 하면 장바구니를 빼고, 인원이 나오면 servings 로 적는다. 재고·영양 숫자는 쓰지 않는다."
+)
+
+
+def servings_in(text):
+    m = re.search(r"(\d{1,2})\s*(?:인분|명|사람)", text)
+    if m and 1 <= int(m[1]) <= 6:
+        return int(m[1])
+    return {"둘이": 2, "셋이": 3, "넷이": 4, "혼자": 1}.get(next((w for w in ("둘이", "셋이", "넷이", "혼자") if w in text), ""), 1)
+
+
+def decide(message, top, emit):
+    """규칙 기본안 → 모델 보충(선택) → 코드 검증."""
+    # 장바구니는 인분까지 곱해 실제로 부족할 때만 담긴다(run 에서 다시 계산)
+    actions = ["메뉴확정", "영상", "조리모드"]
+    if top and not any(w in message for w in NO_BUY_WORDS):
+        actions.insert(1, "장바구니")
+    servings, how, reason = servings_in(message), "규칙", "상황 문장에서 시간·식단·인원을 반영하고 1순위 메뉴로 진행"
+    if os.getenv("AUTOPILOT_LLM", "1") == "1" and gateway.configured():
+        try:
+            plan = gateway.structured("자동 진행", PROMPT, {"message": message, "top": top}, AutoPlan)
+            actions = [a for a in ACTIONS if a in plan.actions] or actions
+            servings, how, reason = plan.servings, "모델(코드 검증)", plan.reason or reason
+            emit("llm_decision", "자동 진행", method="model", decision=actions, reason=reason[:160])
+        except (ValueError, OSError):
+            emit("error", "자동 진행", reason="규칙 기본안 사용")
+    if not top:
+        actions = []
+    if any(w in message for w in NO_BUY_WORDS) and "장바구니" in actions:
+        actions.remove("장바구니")
+    return actions, servings, how, reason
+
+
+def run(state, message, meals, refs, day, emit, limit=None, media=None, named=None):
+    """자동 진행을 실행하고 결과 묶음을 돌려준다. media(menu) 는 영상 조회 함수."""
+    emit("node_start", "자동 진행")
+    top3 = ranked(state, meals, refs, day, limit, top=len(meals))
+    if named:  # 사용자가 메뉴 이름을 말했으면 그 메뉴를 1순위로
+        top3.sort(key=lambda x: x["메뉴"] != named)
+    top3 = top3[:3]
+    top = top3[0] if top3 else None
+    actions, servings, how, reason = decide(message, top, emit)
+    done = []
+    if "메뉴확정" in actions:
+        state["wanted"], state["view_wanted"] = top["메뉴"], True
+        done.append({"작업": "메뉴 확정", "결과": f"{top['메뉴']} · {', '.join(top['근거'])}", "되돌리기": "메뉴 자동"})
+    if "장바구니" in actions:
+        plan = select_meal({**state, "wanted": top["메뉴"]}, meals, refs, day, limit)
+        missing, _ = add_shortages(state, plan, servings)
+        if missing:
+            items = ", ".join(f"{k} {v:g}g" for k, v in missing.items())
+            done.append({"작업": "장바구니 담기", "결과": f"{servings}인분 기준 {items}", "되돌리기": [f"장바구니삭제 {k}" for k in missing]})
+            emit("auto_action", "장바구니", items=list(missing))
+    found = None
+    if "영상" in actions and media:
+        found = media(top["메뉴"])
+        yt, ig = found["youtube"], found["instagram"]
+        n = (len(yt["data"]) if yt.get("ok") else 0) + (len(ig["data"]) if ig.get("ok") else 0)
+        done.append({"작업": "영상·게시물 찾기", "결과": f"{n}건" if n else "키가 없어 직접 링크를 붙이면 화면에서 재생돼요", "되돌리기": None})
+    if "조리모드" in actions and top:
+        done.append({"작업": "조리 모드 준비", "결과": f"{top['메뉴']} {servings}인분 단계 안내", "되돌리기": None})
+    emit("node_end", "자동 진행")
+    return {
+        "자동 진행": done,
+        "추천 후보": top3,
+        "확정 메뉴": top["메뉴"] if top and "메뉴확정" in actions else None,
+        "인분": servings,
+        "판단 방법": how,
+        "판단 이유": reason,
+        "영상": found,
+        "조리 모드": {"title": top["메뉴"], "servings": servings} if top and "조리모드" in actions else None,
+    }
+
+
+# ── 사용자가 붙인 영상 링크 (키 없이도 화면 안에서 재생) ─────────────
+YT = re.compile(r"(?:youtube\.com/(?:watch\?(?:.*&)?v=|shorts/|embed/)|youtu\.be/)([\w-]{11})")
+IG = re.compile(r"^https://(?:www\.)?instagram\.com/(p|reel|reels)/([\w-]{5,40})/?")
+
+
+def parse_link(url):
+    url = (url or "").strip()
+    if not url.startswith("https://"):
+        return None
+    m = YT.search(url)
+    if m and re.match(r"^https://(?:www\.|m\.)?(?:youtube\.com|youtu\.be)/", url):
+        return {"type": "youtube", "id": m[1], "url": "https://www.youtube.com/watch?v=" + m[1]}
+    m = IG.match(url)
+    if m:
+        kind = "reel" if m[1].startswith("reel") else "p"
+        return {"type": "instagram", "url": f"https://www.instagram.com/{kind}/{m[2]}/"}
+    return None
+
+
+def add_link(state, menu, url):
+    menu = (menu or "").strip()
+    link = parse_link(url)
+    if not 1 <= len(menu) <= 40 or not link:
+        raise ValueError("YouTube 또는 Instagram 게시물 주소(https://)를 붙여 넣으세요.")
+    links = state.setdefault("media_links", {}).setdefault(menu, [])
+    if link not in links:
+        links.insert(0, link)
+    del links[8:]
+    return link
+
+
+def merge_links(found, links, steps_count):
+    """API 결과 앞에 사용자가 붙인 링크를 넣는다. 키가 없어도 링크가 있으면 ok."""
+    yt_links = [x for x in links if x["type"] == "youtube"]
+    ig_links = [x for x in links if x["type"] == "instagram"]
+    if yt_links:
+        mine = [{"id": x["id"], "title": "내가 추가한 영상", "channel": "직접 추가", "url": x["url"], "chapters": [], "step_starts": [None] * steps_count, "matching": "직접 추가"} for x in yt_links]
+        yt = found["youtube"]
+        found["youtube"] = {"ok": True, "data": mine + (yt["data"] if yt.get("ok") else []), "source": "직접 추가한 링크" + (" · " + yt["source"] if yt.get("ok") else "")}
+    if ig_links:
+        mine = [{"title": "내가 추가한 게시물", "url": x["url"]} for x in ig_links]
+        ig = found["instagram"]
+        found["instagram"] = {"ok": True, "data": mine + (ig["data"] if ig.get("ok") else []), "source": "직접 추가한 링크" + (" · " + ig["source"] if ig.get("ok") else "")}
+    return found

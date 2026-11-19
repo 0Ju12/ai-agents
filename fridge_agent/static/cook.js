@@ -77,24 +77,24 @@ function providerNote(r, label) {
 function videoPane() {
   if (!mediaInfo) return '<p class="hint" role="status">영상을 찾고 있어요…</p>';
   const yt = mediaInfo.youtube;
-  if (!yt.ok) return providerNote(yt, "YouTube") + a("YouTube에서 직접 찾기", mediaInfo["직접 검색"].YouTube);
+  if (!yt.ok) return providerNote(yt, "YouTube") + a("YouTube에서 직접 찾기", mediaInfo["직접 검색"].YouTube) + linkForm(guide["메뉴"]);
   const v = yt.data[videoAt],
     start = v.step_starts[stepAt];
   return `<div class="video-wrap"><iframe src="https://www.youtube.com/embed/${esc(v.id)}?start=${start || 0}&rel=0&playsinline=1" title="${esc(v.title)}" allow="encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe></div>
   <p class="hint">${start != null ? `이 단계 장면(${mmss(start)})부터 재생해요 · ${esc(v.matching)}` : v.chapters.length ? "이 단계와 맞는 챕터가 없어 처음부터 재생해요." : "챕터가 없는 영상이라 처음부터 재생해요."} · ${esc(v.channel)}</p>
   ${v.chapters.length ? `<details><summary>챕터 ${v.chapters.length}개</summary><div class="btnbar">${v.chapters.map((c) => btn(mmss(c.start) + " " + c.title, "cookSeek", "chip", "", c.start)).join("")}</div></details>` : ""}
-  <div class="btnbar">${yt.data.map((x, i) => btn((i === videoAt ? "▶ " : "") + x.title.slice(0, 26), "cookVideo", "chip", "", i)).join("")}</div><p class="footnote">${esc(yt.source)}</p>`;
+  <div class="btnbar">${yt.data.map((x, i) => btn((i === videoAt ? "▶ " : "") + x.title.slice(0, 26), "cookVideo", "chip", "", i)).join("")}</div><p class="footnote">${esc(yt.source)}</p>${linkForm(guide["메뉴"])}`;
 }
 function socialPane() {
   if (!mediaInfo) return '<p class="hint" role="status">게시물을 찾고 있어요…</p>';
   const ig = mediaInfo.instagram;
   if (!ig.ok || !ig.data.length)
-    return providerNote(ig, "Instagram") + `<p>${a("Instagram 해시태그에서 보기", mediaInfo["직접 검색"].Instagram)}</p><p class="footnote">해시태그 자동 조회는 Instagram 비즈니스 계정 연결과 Meta 앱 검수가 필요해요.</p>`;
+    return providerNote(ig, "Instagram") + `<p>${a("Instagram 해시태그에서 보기", mediaInfo["직접 검색"].Instagram)}</p><p class="footnote">해시태그 자동 조회는 Instagram 비즈니스 계정 연결과 Meta 앱 검수가 필요해요.</p>` + linkForm(guide["메뉴"]);
   return (
     ig.data
       .slice(0, 3)
       .map((x) => `<blockquote class="instagram-media" data-instgrm-permalink="${esc(x.url)}" data-instgrm-version="14"><a href="${esc(x.url)}" rel="noopener noreferrer">${esc(x.title)}</a></blockquote>`)
-      .join("") + `<p class="footnote">${esc(ig.source)}</p>`
+      .join("") + `<p class="footnote">${esc(ig.source)}</p>` + linkForm(guide["메뉴"])
   );
 }
 function loadInstagram() {
@@ -340,4 +340,110 @@ Object.assign(forms, {
 dialog.addEventListener("close", () => {
   stopClock();
   stopVoice();
+});
+
+// ── 한끼 Agent 자동 진행 결과 · 화면 안 영상 ─────────────────────
+let agentMedia = null,
+  agentMenu = "",
+  agentVideo = 0;
+function ytFrame(v, start) {
+  return `<div class="video-wrap"><iframe src="https://www.youtube.com/embed/${esc(v.id)}?start=${start || 0}&rel=0&playsinline=1" title="${esc(v.title)}" allow="encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe></div>`;
+}
+function linkForm(menu) {
+  return `<form class="form inline-link" data-form="mediaLink"><input type="hidden" name="menu" value="${esc(menu)}"><label>YouTube·Instagram 링크로 추가<input name="url" type="url" required placeholder="https://www.youtube.com/watch?v=… 또는 https://www.instagram.com/reel/…"></label><button class="btn alt" type="submit">${ic("plus")}화면에 추가</button><p class="footnote">키가 없어도 붙인 링크는 이 메뉴의 영상 탭과 조리 모드에서 바로 재생돼요.</p></form>`;
+}
+function inlineMedia(info, menu) {
+  if (!info) return '<p class="hint" role="status">영상을 찾고 있어요…</p>';
+  const yt = info.youtube,
+    ig = info.instagram;
+  let html = "";
+  if (yt.ok && yt.data.length) {
+    const v = yt.data[Math.min(agentVideo, yt.data.length - 1)];
+    html += ytFrame(v, 0) + `<div class="btnbar">${yt.data.map((x, i) => btn((i === agentVideo ? "▶ " : "") + x.title.slice(0, 24), "agentVideo", "chip", "", i)).join("")}</div>`;
+  } else html += providerNote(yt, "YouTube");
+  if (ig.ok && ig.data.length)
+    html += ig.data
+      .slice(0, 2)
+      .map((x) => `<blockquote class="instagram-media" data-instgrm-permalink="${esc(x.url)}" data-instgrm-version="14"><a href="${esc(x.url)}" rel="noopener noreferrer">${esc(x.title)}</a></blockquote>`)
+      .join("");
+  else html += `<p class="hint">Instagram · ${esc(errors[ig.error] || "게시물이 없어요.")} ${a("해시태그에서 보기", info["직접 검색"].Instagram)}</p>`;
+  return html + linkForm(menu);
+}
+function paintAgentMedia() {
+  const box = $("#agent-media");
+  if (!box) return;
+  box.innerHTML = inlineMedia(agentMedia, agentMenu);
+  if (agentMedia?.instagram?.ok) loadInstagram();
+}
+function agentResult(msg, r) {
+  const p = r["계획"],
+    done = p["자동 진행"],
+    picks = p["추천 후보"] || [];
+  agentMenu = p["확정 메뉴"] || picks[0]?.["메뉴"] || "";
+  agentMedia = p["영상"];
+  agentVideo = 0;
+  const undo = (u) => (u ? btn("되돌리기", "undo", "linkbtn", "", JSON.stringify([].concat(u))) : "");
+  sheet(
+    "한끼 Agent",
+    `<div class="agent-result"><p class="agent-said">“${esc(msg)}”</p>
+    ${p["답변"] ? `<p class="agent-answer">${esc(p["답변"])}</p>` : ""}
+    <h3 class="guide-head">제가 진행한 일</h3>
+    ${done.length ? `<ol class="done-list">${done.map((d) => `<li>${ic("circle-check")}<div><strong>${esc(d["작업"])}</strong><small>${esc(d["결과"])}</small></div>${undo(d["되돌리기"])}</li>`).join("")}</ol>` : `<p>${esc(p["안내"] || "조건에 맞는 메뉴가 없어요. 시간이나 조건을 바꿔 말해 주세요.")}</p>`}
+    <p class="footnote">판단 · ${esc(p["판단 방법"])} · ${esc(p["판단 이유"])}</p>
+    ${picks.length ? `<h3 class="guide-head">추천 후보</h3><div class="picks">${picks.map((x, i) => `<article class="pick ${x["메뉴"] === agentMenu ? "on" : ""}"><b>${i + 1}</b><div><strong>${esc(x["메뉴"])}</strong><small>${x["근거"].map(esc).join(" · ")}</small></div>${x["메뉴"] === agentMenu ? pill("확정") : btn("이걸로", "agentPick", "chip", "", x["메뉴"])}</article>`).join("")}</div>` : ""}
+    ${p["조리 모드"] ? `<div class="btnbar">${btn(p["조리 모드"].servings + "인분 조리 시작", "agentCook", "btn", "timer", JSON.stringify(p["조리 모드"]))}${Object.keys(r["장바구니"] || {}).length ? btn("장바구니 보기", "pantry", "btn alt", "shopping-bag") : ""}</div>` : ""}
+    ${agentMenu ? `<h3 class="guide-head">${esc(agentMenu)} 영상</h3><div id="agent-media"></div>` : ""}
+    </div><details><summary>이번 실행 과정 (${r["추적"].length}단계)</summary>${trace(r["추적"])}</details>`,
+  );
+  paintAgentMedia();
+}
+async function refreshAgentMedia() {
+  const meal = catalog.meals.find((m) => m.title === agentMenu);
+  agentMedia = await api("/api/guide/media", "POST", { menu: agentMenu, steps: meal ? meal.steps : [] });
+  paintAgentMedia();
+}
+Object.assign(action, {
+  situation: (text) => {
+    const box = $("#agent-msg");
+    if (box) {
+      box.value = text;
+      box.focus();
+    } else send(text, {}, true);
+  },
+  agentVideo: (i) => {
+    agentVideo = Number(i);
+    paintAgentMedia();
+  },
+  agentPick: (menu) => send(menu + " 먹고 싶어", {}, true),
+  agentCook: async (raw) => {
+    const c = JSON.parse(raw);
+    guide = await api("/api/guide", "POST", { title: c.title, servings: c.servings });
+    mediaInfo = null;
+    videoAt = 0;
+    tab = "anim";
+    sheet(guide["메뉴"] + " · 조리 모드", "");
+    showStep(0);
+  },
+  undo: async (raw) => {
+    const cmds = JSON.parse(raw);
+    for (const c of cmds) await send(c, {}, false);
+    note("되돌렸어요.");
+  },
+  demo: async () => {
+    if (!confirm("지금 냉장고와 장바구니를 비우고 예시 재료 18가지로 채울까요?")) return;
+    const r = await api("/api/demo", "POST", {});
+    st = { ...r, 계획: r["현재 추천"] };
+    render();
+    note("예시 재료로 채웠어요.");
+  },
+});
+Object.assign(forms, {
+  mediaLink: async (v, f) => {
+    await api("/api/chat", "POST", { message: "영상링크", params: { menu: v.menu, url: v.url.trim() } });
+    note("링크를 추가했어요.");
+    if (guide && dialog.open && $("#sheet-body .cook")) {
+      mediaInfo = null;
+      await ensureMedia();
+    } else await refreshAgentMedia();
+  },
 });

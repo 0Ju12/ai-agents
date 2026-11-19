@@ -7,7 +7,7 @@ from domain.training import GOALS, MOVES
 from storage import today
 
 COMMANDS = set(
-    "추가 삭제 시간 부위 목표 추천 물 수면 외식 집밥 메뉴 대체 조리 섭취 요리코치 레시피 식품영양 검색 영양 도움말 입고 포장삭제 설정 운동완료 쇼핑 영상 헬스장 해설 일정조회 일정등록 미국영양 운동자료 건강연동 시간대 주간계획 레시피저장 확인 장바구니담기 구매완료 장바구니삭제 사진식사".split()
+    "추가 삭제 시간 부위 목표 추천 물 수면 외식 집밥 메뉴 대체 조리 섭취 요리코치 레시피 식품영양 검색 영양 도움말 입고 포장삭제 설정 운동완료 쇼핑 영상 헬스장 해설 일정조회 일정등록 미국영양 운동자료 건강연동 시간대 주간계획 레시피저장 확인 장바구니담기 구매완료 장바구니삭제 사진식사 데모 영상링크".split()
 )
 
 
@@ -86,6 +86,10 @@ def parse(text, emit):
     intent.goal = next((v for v in GOALS if v in text), None)
     intent.body = next((v for v in MOVES if v in text), None)
     intent.diet = next((v for v in ("식물성", "단백질 우선", "균형") if v in text), None)
+    if not intent.diet and "단백질" in text:
+        intent.diet = "단백질 우선"
+    if not intent.diet and any(w in text for w in ("채식", "비건")):
+        intent.diet = "식물성"
     if any(x in text for x in ("유산", "유적", "국보", "석굴암", "불국사")):
         return Intent(action="해설", argument=text)
     if "헬스장" in text:
@@ -127,6 +131,7 @@ def parse(text, emit):
         )
         or intent.action != "추천"
         or "추천" in text
+        or any(w in text for w in ("먹고 싶", "뭐 먹", "먹을", "먹자", "배고", "저녁", "점심", "아침", "해먹", "만들", "요리", "식사", "메뉴", "인분"))
     ):
         return Intent(
             action="확인",

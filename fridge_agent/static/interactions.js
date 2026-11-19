@@ -110,6 +110,7 @@ function excluded(p) {
 }
 function showResult(msg, r) {
   const p = r["계획"];
+  if (p["자동 진행"]) return agentResult(msg, r);
   let content = "";
   if (p["자료"])
     content =
@@ -514,6 +515,12 @@ window.addEventListener("hashchange", () => {
 async function start() {
   try {
     st = await api("/api/state");
+    if (st["데모 필요"]) {
+      // 처음 실행: 소비기한이 다른 예시 재료로 냉장고를 채운다
+      const r = await api("/api/demo", "POST", {});
+      st = { ...r, 계획: r["현재 추천"] };
+      setTimeout(() => note("예시 재료 18가지를 냉장고에 넣었어요. 상황을 말해 보세요."), 300);
+    }
     catalog = await api("/api/catalog");
     render();
   } catch (err) {

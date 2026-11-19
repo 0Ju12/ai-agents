@@ -145,8 +145,19 @@ function dateLabel(day) {
     timeZone: "Asia/Seoul",
   }).format(new Date(day + "T12:00:00+09:00"));
 }
+const situations = [
+  "퇴근했는데 20분밖에 없어. 단백질 위주로 먹고 싶어",
+  "유통기한 임박한 재료부터 써서 저녁 만들어줘",
+  "둘이 먹을 거고 있는 재료로만 해줘",
+  "토마토 달걀볶음 먹고 싶어",
+];
 function coach() {
-  return `<button data-do="chat" class="btn alt agent-input">${ic("sparkles")}<span>한끼 코치에게 물어보기</span>${ic("arrow-right")}</button>`;
+  // 상황을 말하면 Agent 가 추천 → 메뉴 확정 → 장바구니 → 영상 → 조리 모드 준비까지 이어서 진행
+  return `<section class="card agent-box"><div class="section-head"><h2>${ic("sparkles")} 한끼 Agent</h2></div>
+  <form class="form" data-form="chat"><label class="sr" for="agent-msg">지금 상황</label><textarea id="agent-msg" name="message" required maxlength="1000" placeholder="지금 상황을 말해 주세요. 예: 퇴근했는데 20분밖에 없어, 단백질 위주로"></textarea>
+  <div class="chips">${situations.map((x) => btn(x, "situation", "chip", "", x)).join("")}</div>
+  <button class="btn" type="submit">${ic("send")}알아서 진행해줘</button></form>
+  <p class="footnote">추천 후보와 근거를 보여 주고, 메뉴 확정·부족 재료 담기·영상 찾기·조리 모드 준비를 이어서 해요. 한 일은 되돌릴 수 있어요.</p></section>`;
 }
 function todayView() {
   const p = st["계획"],
@@ -189,7 +200,7 @@ function pantryView() {
   let items = [...st["포장"]].sort((a, b) => (a.expires || "9999").localeCompare(b.expires || "9999"));
   return (
     heading("pantry", "포장에 적힌 소비기한 순서로 먼저 쓸 재료를 확인해요.") +
-    `<div class="panelgrid wideleft"><section class="card"><div class="section-head"><h2>보관 중인 재료 <small>${items.length}</small></h2></div><div class="btnbar">${btn("재료 추가", "lot", "btn", "plus")}${btn("사진으로", "photoFridge", "btn alt", "camera")}${btn("바코드", "barcode", "btn alt", "scan-barcode")}</div>
+    `<div class="panelgrid wideleft"><section class="card"><div class="section-head"><h2>보관 중인 재료 <small>${items.length}</small></h2></div><div class="btnbar">${btn("재료 추가", "lot", "btn", "plus")}${btn("사진으로", "photoFridge", "btn alt", "camera")}${btn("바코드", "barcode", "btn alt", "scan-barcode")}${btn("예시 재료로 채우기", "demo", "linkbtn", "sparkles")}</div>
  ${items.length ? items.map((l) => `<div class="list-line"><div><strong>${esc(l.item)}</strong><small>${l.grams == null ? "용량 미입력" : fmt(l.grams) + " g"} · ${esc(l.expires || "날짜 미입력")}</small></div>${pill(...expiry(l.expires))}${btn("삭제", "remove", "linkbtn", "", l.id)}</div>`).join("") : '<p class="empty">냉장고가 비어 있어요. 달걀이나 두부처럼 지금 있는 재료 하나부터 등록해 보세요.</p>'}
  </section><div class="stack"><section class="card soft">${section("재료로 만들 수 있는 메뉴")}<p class="plan-name">${esc(st["계획"]["메뉴"] || st["계획"]["안내"] || "남은 음식부터")}</p><div class="actions">${btn("식단 확인", "meal", "btn", "utensils")}</div></section><section class="card">${section("장바구니")}${cartRows()}</section><section class="card">${section("조리해 둔 음식")}${leftoverRows()}</section></div></div>`
   );

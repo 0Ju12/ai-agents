@@ -41,7 +41,7 @@ def answer(request, output, emit):
     return {"답변": text[:800], **output}
 
 
-def execute(command, argument, local, emit, stock=(), events=None, request=None):
+def execute(command, argument, local, emit, stock=(), events=None, request=None, speak=True):
     events = events if events is not None else []
     if command in {"도움말", "확인"} or command == "검색" and not argument:
         emit("node_start", "응답")
@@ -162,7 +162,7 @@ def execute(command, argument, local, emit, stock=(), events=None, request=None)
         extra = [x for x in s.get("trail", []) if x["도구"] not in base_tools]
         if extra and isinstance(out, dict):
             out = {**out, "추가 조회": extra}
-        return {"output": answer(request, out, emit)}
+        return {"output": answer(request, out, emit) if speak else out}
 
     def compose(s):
         results = s["results"]
