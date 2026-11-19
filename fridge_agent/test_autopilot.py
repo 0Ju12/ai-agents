@@ -134,3 +134,51 @@ def test_exercise_photos_are_served_from_allowed_source():
     assert media.allowed("https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/0.jpg")
     assert not media.allowed("https://raw.githubusercontent.com/evil/repo/main/x.jpg")
     assert not media.allowed("https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/../../x")
+
+
+def test_quantity_confirmation_portions_and_guide_cart():
+    from datetime import timedelta
+    from storage import today
+
+    client = TestClient(api.app)
+    expiry = (today() + timedelta(days=3)).isoformat()
+    lot = api.run("입고", params={"name": "달걀", "expires": expiry})["포장"][0]
+    p = api.run("둘이서 삶은 달걀 먹고 싶어")["계획"]
+    assert "삶은 달걀" in [x["메뉴"] for x in p["선택지"]["분량 확인"]]
+    assert not p["선택지"]["바로 가능"]
+    assert p["인분"] == 2
+
+    message = "분량확인 " + lot["id"]
+    params = {"quantity": 1, "unit": "개"}
+    r = api.run(message, params=params, request_id="measure")
+    assert r["포장"] == [{**lot, "grams": 50}]
+    assert api.run(message, params=params, request_id="measure")["포장"] == r["포장"]
+    with pytest.raises(ValueError):
+        api.run(message, params=params)
+    p = api.run("두 명이 삶은 달걀 먹고 싶어")["계획"]
+    assert p["추천 후보"][0]["부족량(g)"] == {"달걀": 50}
+    guide = client.post("/api/guide", json={"title": "삶은 달걀", "servings": 2}).json()
+    assert guide["부족량(g)"] == {"달걀": 50}
+    assert guide["재료 합계"][0]["부족(g)"] == 50
+    cart = api.run("장바구니담기", params={"menu": "삶은 달걀", "servings": 3})
+    assert cart["장바구니"]["달걀"]["grams"] == 100
+    assert api.run("장바구니담기", params={"menu": "삶은 달걀", "servings": 1})["장바구니"] == {}
+    p = api.run("둘이서 있는 재료로만 저녁 추천해줘")["계획"]
+    assert not p["추천 후보"] and not p.get("메뉴") and "재고" in p["안내"]
+
+
+def test_recipe_shelf_and_recommendation_counts():
+    api.run("레시피찜 양배추 두부덮밥")
+    assert api.run("레시피찜 양배추 두부덮밥")["찜한 레시피"] == ["양배추 두부덮밥"]
+    assert api.state("other")["찜한 레시피"] == []
+    assert api.run("찜해제 양배추 두부덮밥")["찜한 레시피"] == []
+    api.run("데모")
+    message = "두부 달걀찜 먹고 싶어"
+    r = api.run(message, request_id="one-offer")
+    assert r["추천 조리 통계"] == {"추천": 1, "조리": 0}
+    assert api.run(message, request_id="one-offer")["추천 조리 통계"] == r["추천 조리 통계"]
+    api.run("조리 1인분 15분", request_id="one-cook")
+    assert api.run("조리 1인분 15분", request_id="one-cook")["추천 조리 통계"] == {"추천": 1, "조리": 1}
+    api.run("메뉴 두부 달걀찜")
+    assert api.run("조리 1인분 15분")["추천 조리 통계"] == {"추천": 1, "조리": 1}
+    assert api.state()["재고 입력별 추천 통계"]["분량 입력 완료"] == {"추천": 1, "조리": 1}

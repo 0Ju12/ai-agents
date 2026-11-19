@@ -7,6 +7,17 @@ from .catalog import ALLERGENS, ANIMAL, SUBSTITUTES, canonical, nutrient_totals
 from .training import routine
 
 
+def package_grams(item, quantity, unit):
+    if unit == "개" and item != "달걀":
+        raise ValueError("이 재료는 포장에 표시된 g 수를 입력하세요.")
+    if unit not in {"g", "kg", "개"}:
+        raise ValueError("g, kg 또는 달걀 개수를 입력하세요.")
+    quantity = round(float(quantity) * {"g": 1, "kg": 1000, "개": 50}[unit], 2)
+    if not 0 < quantity <= 100000:
+        raise ValueError("한 포장의 중량은 0~100kg 범위에서 입력하세요.")
+    return quantity
+
+
 def add_lot(state, item, quantity=None, unit="g", expires=None):
     item = canonical(item)
     if not item or len(item) > 50:
@@ -14,13 +25,7 @@ def add_lot(state, item, quantity=None, unit="g", expires=None):
     if expires:
         expires = date.fromisoformat(expires).isoformat()
     if quantity is not None:
-        if unit == "개" and item != "달걀":
-            raise ValueError("이 재료는 포장에 표시된 g 수를 입력하세요.")
-        if unit not in {"g", "kg", "개"}:
-            raise ValueError("g, kg 또는 달걀 개수를 입력하세요.")
-        quantity = round(float(quantity) * {"g": 1, "kg": 1000, "개": 50}[unit], 2)
-        if not 0 < quantity <= 100000:
-            raise ValueError("한 포장의 중량은 0~100kg 범위에서 입력하세요.")
+        quantity = package_grams(item, quantity, unit)
     elif not expires and any(
         x["item"] == item and x["grams"] is None and not x["expires"] for x in state["lots"]
     ):
@@ -83,7 +88,7 @@ def excluded_by_food(state, grams):
     return None
 
 
-def select_meal(state, meals, refs, day, available_minutes=None):
+def select_meal(state, meals, refs, day, available_minutes=None, servings=1):
     available = inventory(state, day)
     limit = state["minutes"] if available_minutes is None else min(state["minutes"], available_minutes)
     choices = []
@@ -114,7 +119,7 @@ def select_meal(state, meals, refs, day, available_minutes=None):
         if reason:
             excluded.append({"메뉴": title, "사유": reason})
             continue
-        missing, unchecked = shortages(grams, available)
+        missing, unchecked = shortages(grams, available, servings)
         facts = nutrient_totals(grams, refs)
         priority = state.get("priority")
         expiry = min(
@@ -144,7 +149,7 @@ def select_meal(state, meals, refs, day, available_minutes=None):
         )
     return {
         "메뉴": title,
-        "상태": "추가 구매 필요" if missing else "재료 보유",
+        "상태": "추가 구매 필요" if missing else "수량 확인 필요" if unchecked else "재료 보유",
         "부족분": sorted(missing),
         "부족량(g)": missing,
         "수량 확인": unchecked,

@@ -46,7 +46,7 @@ def test_recipe_detail_units_and_checks():
     g = TestClient(api.app).post("/api/guide", json={"title": "제육볶음", "servings": 2}).json()
     prep, fry = g["단계"][0], next(c for c in g["단계"] if c["동작"] == "볶기")
     assert prep["종류"] == "prep" and any("양파" in t for t in prep["손질"])
-    assert "분홍빛" in fry["익힘 기준"]
+    assert "75℃" in fry["익힘 기준"] and "1분" in fry["익힘 기준"]
     assert g["단계"][-1]["종류"] == "finish" and "냉장" in g["단계"][-1]["익힘 기준"]
 
 

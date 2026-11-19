@@ -1425,3 +1425,14 @@ dialog.cook-full .cook-text { font-size: 1.35rem; }
 @media (prefers-reduced-motion: reduce) { .ai-orb .ai-ring { animation: none; } }
 .avatar.persona.ai img { object-position: 25% center; }
 .avatar.persona img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.recipe-shelves { margin: 12px 0; }
+.prep-status { font-size: .75rem; color: var(--green); }
+.missing .prep-status { color: #943d15; }
+.prep-board + .btn { margin-top: 10px; }
+@media (max-width: 600px) {
+  .recipe-entry { flex-wrap: wrap; }
+  .recipe-entry > div:first-child { flex-basis: 100%; }
+}
+
+.raw-ingredients { white-space: pre-line; }

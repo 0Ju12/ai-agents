@@ -330,6 +330,9 @@ const action = {
   eat: (n) => send("섭취 " + n),
   shopping: (n) => send("쇼핑 " + n, {}, true),
   videos: (n) => send("영상 " + n, {}, true),
+  recipeShelf: (label) => { recipeShelf = label; render(); },
+  favoriteRecipe: (title) => send((st["찜한 레시피"].includes(title) ? "찜해제 " : "레시피찜 ") + title),
+  measureLot: (id) => measureLotForm(id),
   choose: (n) => send("메뉴 " + n, {}, true),
   remove: (id) =>
     sheet(
@@ -393,6 +396,15 @@ const action = {
       ),
     ),
 };
+function measureLotForm(id, returnToGuide = false) {
+  const lot = st["포장"].find((row) => row.id === id);
+  if (!lot) return note("포장을 다시 확인해 주세요.");
+  const units = lot.item === "달걀" ? ["개", "g", "kg"] : ["g", "kg"];
+  sheet(lot.item + " 분량 입력", form("measureLot",
+    `<input type="hidden" name="id" value="${esc(id)}"><input type="hidden" name="guide" value="${returnToGuide ? "1" : ""}">
+    <p>이 포장에 지금 남은 양을 입력하세요. ${esc(expiry(lot.expires)[0])}</p>
+    <div class="fields">${field("남은 양", "quantity", "number", "", 'min="0.01" step="0.01" required')}${select("단위", "unit", units, units[0])}</div>`, "냉장고에 반영"));
+}
 function demoRecipe(title) {
   const m = catalog.meals.find((v) => v.title === title);
   sheet(
@@ -407,6 +419,11 @@ function demoRecipe(title) {
   );
 }
 const forms = {
+  measureLot: async (v) => {
+    const req = v.guide ? { ...guideReq, servings: guide["인분"] } : null;
+    const r = await send("분량확인 " + v.id, { quantity: Number(v.quantity), unit: v.unit });
+    if (r && req) await openGuide(req);
+  },
   cart: (v) => send("장바구니담기", { servings: Number(v.servings) }),
   bought: (v) => send("구매완료 " + v.name, { quantity: Number(v.quantity), unit: "g", expires: v.expires }),
   importRecipe: async (v) => {
@@ -499,7 +516,10 @@ document.addEventListener("submit", async (e) => {
   }
 });
 document.addEventListener("input", (e) => {
-  if (e.target.id === "meal-filter") $("#meal-list").innerHTML = recipeList(e.target.value.trim());
+  if (e.target.id === "meal-filter") {
+    recipeQuery = e.target.value;
+    $("#meal-list").innerHTML = recipeList(recipeQuery.trim());
+  }
 });
 dialog.addEventListener("click", (e) => {
   if (e.target === dialog) {

@@ -210,7 +210,7 @@ function pantryView() {
   return (
     heading("pantry", "포장에 적힌 소비기한 순서로 먼저 쓸 재료를 확인해요.") +
     `<div class="panelgrid wideleft"><section class="card"><div class="section-head"><h2>보관 중인 재료 <small>${items.length}</small></h2></div><div class="btnbar">${btn("재료 추가", "lot", "btn", "plus")}${btn("사진으로", "photoFridge", "btn alt", "camera")}${btn("바코드", "barcode", "btn alt", "scan-barcode")}${btn("예시 재료로 채우기", "demo", "linkbtn", "sparkles")}</div>
- ${items.length ? items.map((l) => `<div class="list-line"><div><strong>${esc(l.item)}</strong><small>${l.grams == null ? "용량 미입력" : fmt(l.grams) + " g"} · ${esc(l.expires || "날짜 미입력")}</small></div>${pill(...expiry(l.expires))}${btn("삭제", "remove", "linkbtn", "", l.id)}</div>`).join("") : '<p class="empty">냉장고가 비어 있어요. 달걀이나 두부처럼 지금 있는 재료 하나부터 등록해 보세요.</p>'}
+ ${items.length ? items.map((l) => `<div class="list-line"><div><strong>${esc(l.item)}</strong><small>${l.grams == null ? "용량 미입력" : fmt(l.grams) + " g"} · ${esc(l.expires || "날짜 미입력")}</small></div>${pill(...expiry(l.expires))}${l.grams == null ? btn("분량 입력", "measureLot", "chip", "", l.id) : ""}${btn("삭제", "remove", "linkbtn", "", l.id)}</div>`).join("") : '<p class="empty">냉장고가 비어 있어요. 달걀이나 두부처럼 지금 있는 재료 하나부터 등록해 보세요.</p>'}
  </section><div class="stack"><section class="card soft">${section("재료로 만들 수 있는 메뉴")}<p class="plan-name">${esc(st["계획"]["메뉴"] || st["계획"]["안내"] || "남은 음식부터")}</p><div class="actions">${btn("식단 확인", "meal", "btn", "utensils")}</div></section><section class="card">${section("장바구니")}${cartRows()}</section><section class="card">${section("조리해 둔 음식")}${leftoverRows()}</section></div></div>`
   );
 }
@@ -236,25 +236,41 @@ function leftoverRows() {
         .join("")
     : '<p class="muted">조리를 기록하면 남은 분량이 여기에 표시돼요.</p>';
 }
+let recipeShelf = "전체", recipeQuery = "";
+function recipeShelfTabs() {
+  return ["전체", "찜한 레시피", "최근 조리"].map((label) =>
+    `<button type="button" class="chip ${recipeShelf === label ? "on" : ""}" data-do="recipeShelf" data-arg="${label}" aria-pressed="${recipeShelf === label}">${label}</button>`
+  ).join("");
+}
 function recipesView() {
   const p = st["계획"];
   return (
     heading("recipes", "원하는 메뉴를 고르면 필요한 분량과 장보기 목록을 확인할 수 있어요.") +
     `<div class="panelgrid wideleft"><div class="stack"><section class="card soft">${section("내 조건에 맞는 식사")}<p class="plan-name">${esc(p["메뉴"] || p["안내"] || "남은 음식 우선")}</p><p class="muted">${esc(p["판단 기준"] || "")}</p><div class="actions">${btn("추천 상세", "meal", "btn", "utensils")}${btn("7일 식단", "week", "btn alt", "calendar-days")}</div></section>
- <section class="card">${section("레시피 목록")}<label class="sr" for="meal-filter">메뉴 검색</label><input id="meal-filter" class="chat-input" placeholder="메뉴나 재료로 검색"><div id="meal-list">${recipeList("")}</div></section></div><div class="stack"><section class="card">${section("레시피와 장보기")}${sourceForm("레시피", "메뉴 이름", "국내 레시피 조회")}<hr class="divider">${sourceForm("영상", "요리 이름", "YouTube · Instagram 찾기")}<hr class="divider">${sourceForm("쇼핑", "구입할 재료", "상품 조회")}</section>${coach()}</div></div>`
+ <section class="card">${section("레시피 목록")}<div class="btnbar recipe-shelves" role="group" aria-label="레시피 모아보기">${recipeShelfTabs()}</div><label class="sr" for="meal-filter">메뉴 검색</label><input id="meal-filter" class="chat-input" value="${esc(recipeQuery)}" placeholder="메뉴나 재료로 검색"><div id="meal-list">${recipeList(recipeQuery.trim())}</div></section></div><div class="stack"><section class="card">${section("레시피와 장보기")}${sourceForm("레시피", "메뉴 이름", "국내 레시피 조회")}<hr class="divider">${sourceForm("영상", "요리 이름", "YouTube · Instagram 찾기")}<hr class="divider">${sourceForm("쇼핑", "구입할 재료", "상품 조회")}</section>${coach()}</div></div>`
   );
 }
 function recipeList(term) {
-  const rows = catalog.meals.filter(
-    (m) => m.title.includes(term) || Object.keys(m.grams).some((x) => x.includes(term)),
+  const saved = new Set(st["찜한 레시피"] || []);
+  const recent = [...new Set((st["조리 기록"] || []).slice().reverse().map((row) => row.meal))];
+  const rows = catalog.meals.filter((m) =>
+    (recipeShelf !== "찜한 레시피" || saved.has(m.title)) &&
+    (recipeShelf !== "최근 조리" || recent.includes(m.title)) &&
+    (m.title.includes(term) || Object.keys(m.grams).some((x) => x.includes(term)))
   );
+  if (recipeShelf === "최근 조리") rows.sort((a,b) => recent.indexOf(a.title) - recent.indexOf(b.title));
+  if (!rows.length) {
+    const message = term ? "검색 결과가 없어요. 다른 메뉴나 재료 이름을 입력해 주세요." :
+      recipeShelf === "찜한 레시피" ? "다시 만들고 싶은 메뉴에서 ‘찜하기’를 눌러 주세요." : "조리를 완료하면 최근 만든 메뉴가 여기에 모여요.";
+    return `<p class="empty">${message}</p>`;
+  }
   return (
     rows
       .map(
         (m) =>
-          `<div class="list-line"><div><strong>${esc(m.title)}</strong><small>${fmt(m.minutes)}분 · ${esc(Object.keys(m.grams).join(", "))}</small></div><div class="btnbar">${btn("조리 모드", "cookMode", "chip", "timer", m.title)}${btn("선택", "choose", "chip", "", m.title)}</div></div>`,
+          `<div class="list-line recipe-entry"><div><strong>${esc(m.title)}</strong><small>${fmt(m.minutes)}분 · ${esc(Object.keys(m.grams).join(", "))}</small></div><div class="btnbar">${btn(saved.has(m.title) ? "찜 해제" : "찜하기", "favoriteRecipe", saved.has(m.title) ? "chip on" : "chip", "", m.title)}${btn("조리 모드", "cookMode", "chip", "timer", m.title)}${btn("선택", "choose", "chip", "", m.title)}</div></div>`,
       )
-      .join("") || '<p class="empty">등록된 메뉴가 없습니다. 국내 레시피 조회에서 찾아보세요.</p>'
+      .join("")
   );
 }
 function sourceForm(cmd, label, submit) {
@@ -280,6 +296,14 @@ function workoutView() {
  }</section><section class="card"><details><summary>운동 자료와 출처</summary>${catalog.exercises.map((x) => `<div class="list-line"><div>${a(x.title, x.url)}<small>${esc(x.authors.join(", "))} · ${a("이용 조건", x.license)}</small></div></div>`).join("")}</details></section></div></div>`
   );
 }
+function recommendationStats() {
+  const counts = st["추천 조리 통계"] || {};
+  const offered = counts["추천"] || 0, cooked = counts["조리"] || 0;
+  const groups = Object.entries(st["재고 입력별 추천 통계"] || {});
+  const details = groups.length ? `<details><summary>추천 당시 냉장고 상태별 보기</summary>${groups.map(([name, row]) =>
+    `<p class="hint">${esc(name)} · 추천 ${fmt(row["추천"])}건 중 조리 ${fmt(row["조리"])}건</p>`).join("")}</details>` : "";
+  return `<section class="card">${section("추천받고 만든 식사")}<p class="plan-name">${cooked} / ${offered}건${offered ? " · " + Math.round(cooked * 100 / offered) + "%" : ""}</p><p class="hint">추천 결과를 받은 뒤 같은 날 마지막 추천 목록의 메뉴를 조리한 횟수예요. 한 추천당 한 번만 세요.</p>${details}</section>`;
+}
 function journalView() {
   const j = st["건강"],
     w = j.week,
@@ -287,7 +311,7 @@ function journalView() {
   return (
     heading("journal", "직접 기록한 값과 연결한 건강 데이터의 출처를 함께 확인해요.") +
     `<div class="panelgrid"><div class="stack"><section class="card intake">${section("오늘의 섭취와 수면")}${metricRows()}${intakeList()}<div class="btnbar">${btn("물 더하기", "water", "btn", "droplet")}${btn("수면 기록", "sleep", "btn alt", "moon")}${btn("식사 사진", "photoMeal", "btn alt", "camera")}</div></section><section class="card">${section("건강 체크 · 인바디·검진")}<div id="health-card"><p class="hint" role="status">불러오는 중…</p></div></section><section class="card">${section("물·영양제 알림")}<div id="reminders"><p class="hint" role="status">알림을 불러오는 중…</p></div></section><section class="card">${section("이번 주 수분 기록")}<div class="week">${w.map((x) => `<div><small>${fmt(x.totals.water_ml.value)}</small><i style="height:${Math.max(2, (45 * (x.totals.water_ml.value || 0)) / max)}px"></i><small>${x.day.slice(5)}</small></div>`).join("")}</div><p class="hint">단위 mL · 대시는 기록 전</p></section></div>
- <div class="stack"><section class="card soft">${section("나의 영양 목표", "settings", "설정")}${j.hints.length ? j.hints.map((h) => `<p><strong>${esc(h.label)}</strong> · 목표까지 ${fmt(h.remaining)}${h.label === "수분" ? "mL" : "g"}</p><p class="muted">${esc(h.advice)}</p>`).join("") : '<p class="muted">목표와 섭취량을 기록하면 남은 양을 계산해요.</p>'}</section><section class="card">${section("조리시간 분석")}<div class="facts"><div class="fact"><small>조리 횟수</small><b>${j.metrics.cooks}<span>회</span></b></div><div class="fact"><small>평균 오차</small><b>${fmt(j.metrics.planned_vs_actual_mae_min)}<span>분</span></b></div></div><p class="hint">메뉴별 최근 조리 기록 5건을 다음 예상 시간에 반영해요.</p></section><section class="card">${section("데이터 관리")}<div class="btnbar">${btn("건강 데이터 연결", "health", "btn alt", "heart-pulse")}${btn("계획과 일정", "plans", "btn alt", "calendar-days")}${btn("실행 이력", "logs", "btn alt", "notebook-text")}</div><p class="footnote">일상 생활을 위한 참고 정보입니다. 개인의 치료나 섭취 처방은 의료진과 상의하세요.</p><details><summary>내 데이터</summary><div class="btnbar"><a href="/api/export" download="hankki.json" class="chip">내 데이터 내려받기</a>${btn("기록 삭제", "erase", "chip danger")}<a href="/privacy" class="chip">개인정보 안내</a></div></details></section></div></div>`
+ <div class="stack"><section class="card soft">${section("나의 영양 목표", "settings", "설정")}${j.hints.length ? j.hints.map((h) => `<p><strong>${esc(h.label)}</strong> · 목표까지 ${fmt(h.remaining)}${h.label === "수분" ? "mL" : "g"}</p><p class="muted">${esc(h.advice)}</p>`).join("") : '<p class="muted">목표와 섭취량을 기록하면 남은 양을 계산해요.</p>'}</section><section class="card">${section("조리시간 분석")}<div class="facts"><div class="fact"><small>조리 횟수</small><b>${j.metrics.cooks}<span>회</span></b></div><div class="fact"><small>평균 오차</small><b>${fmt(j.metrics.planned_vs_actual_mae_min)}<span>분</span></b></div></div><p class="hint">메뉴별 최근 조리 기록 5건을 다음 예상 시간에 반영해요.</p></section>${recommendationStats()}<section class="card">${section("데이터 관리")}<div class="btnbar">${btn("건강 데이터 연결", "health", "btn alt", "heart-pulse")}${btn("계획과 일정", "plans", "btn alt", "calendar-days")}${btn("실행 이력", "logs", "btn alt", "notebook-text")}</div><p class="footnote">일상 생활을 위한 참고 정보입니다. 개인의 치료나 섭취 처방은 의료진과 상의하세요.</p><details><summary>내 데이터</summary><div class="btnbar"><a href="/api/export" download="hankki.json" class="chip">내 데이터 내려받기</a>${btn("기록 삭제", "erase", "chip danger")}<a href="/privacy" class="chip">개인정보 안내</a></div></details></section></div></div>`
   );
 }
 function render() {

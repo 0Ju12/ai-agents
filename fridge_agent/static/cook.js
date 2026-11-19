@@ -4,6 +4,7 @@ let guide = null,
   stepAt = 0,
   clock = 0,
   remain = 0,
+  timerEnds = 0,
   photoResult = null;
 const vessel = { drop: "🍲", stir: "🍳", boil: "🍲", steam: "♨️", grill: "🍳", mix: "🥣", chop: "🔪", blanch: "🫕", ready: "🍽️" };
 
@@ -52,8 +53,19 @@ function fxLayer(card) {
   );
 }
 function prepBoard() {
-  // 재료 준비 단계: 계량한 재료를 도마 위에 늘어놓은 것처럼 보여 준다
-  return `<div class="prep-board">${guide["재료 합계"].map((x) => `<div class="prep-tile ${x["보유"] ? "" : "missing"}"><span class="pi">${esc(x["아이콘"])}</span><b>${esc(x["이름"])}</b><small>${x["분량(g)"] != null ? fmt(x["분량(g)"]) + "g" : "적당량"}${x["계량"] ? " · " + esc(x["계량"]) : ""}</small>${x["보유"] ? "" : '<em>미보유</em>'}</div>`).join("")}</div>`;
+  const tiles = guide["재료 합계"].map((x) => {
+    const name = x["이름"], grams = x["분량(g)"];
+    const unknown = x["분량 확인"], missing = x["부족(g)"];
+    const status = unknown ? "분량 확인" : missing ? fmt(missing) + "g 부족" : x["보유"] ? (grams == null ? "보유 · 필요량 확인" : "충분") : "미보유";
+    const lots = unknown ? st["포장"].filter((lot) => lot.item === name && lot.grams == null && (!lot.expires || lot.expires >= st["날짜"])) : [];
+    return `<div class="prep-tile ${unknown || missing || !x["보유"] ? "missing" : ""}"><span class="pi">${esc(x["아이콘"])}</span><b>${esc(name)}</b><small>${grams == null ? "원문 분량 확인" : fmt(grams) + "g"} ${esc(x["계량"] || "")}</small><strong class="prep-status">${esc(status)}</strong>${lots.map((lot, i) => btn(lots.length > 1 ? (i + 1) + "번 포장 · " + expiry(lot.expires)[0] : "분량 입력", "measureGuideLot", "chip", "", lot.id)).join("")}</div>`;
+  });
+  const alreadyInCart = Object.values(st["장바구니"] || {}).some((row) => row.meal === guide["메뉴"]);
+  const cart = guide["부족량(g)"] && (alreadyInCart || Object.keys(guide["부족량(g)"]).length)
+    ? btn(alreadyInCart ? "장바구니 분량 맞추기" : "부족분 장바구니에 담기", "guideCart", "btn alt", "shopping-bag") : "";
+  const raw = guide["재료 원문"];
+  const original = raw ? `<details><summary>원문 재료와 분량</summary><p class="raw-ingredients">${esc(raw)}</p><p class="hint">제공처 원문 분량이에요. 선택한 인분에 맞춰 확인해 주세요.</p></details>` : "";
+  return `<div class="prep-board">${tiles.join("")}</div>${original}${cart}`;
 }
 function stage(card) {
   if (card["종류"] === "prep") return prepBoard();
@@ -110,7 +122,9 @@ function loadInstagram() {
 }
 async function ensureMedia() {
   if (mediaInfo) return;
+  const request = guideReq;
   const r = await api("/api/guide/media", "POST", { menu: guide["메뉴"], steps: guide["단계"].map((c) => c["설명"]) });
+  if (request !== guideReq) return;
   mediaInfo = r;
   if (dialog.open && guide && $("#sheet-body .cook")) paint(); // 다른 화면으로 바뀌었으면 덮어쓰지 않는다
 }
@@ -133,7 +147,7 @@ function cookCard() {
   ${card["불 세기"] && card["불 세기 권장"] ? `<p class="hint">🔥 불 세기는 원문에 없어 ${esc(card["불 세기"])}을 권장해요.</p>` : ""}
   ${card["팁"] ? `<p class="hint">${esc(card["팁"])}</p>` : ""}
   ${card["재료"].length ? `<div class="btnbar">${card["재료"].map((x) => `<span class="pill ${x["보유"] ? "" : "warn"}">${esc(x["아이콘"] + " " + x["이름"])}${x["분량(g)"] != null ? " " + fmt(x["분량(g)"]) + "g" : ""}${x["계량"] ? `(${esc(x["계량"])})` : ""}${x["보유"] ? "" : " · 미보유"}</span>`).join("")}</div>` : ""}
-  ${secs ? `<div class="cook-timer"><div class="cook-ring" id="cook-ring" style="--p:${Math.round((1 - (remain || secs) / secs) * 100)}"><b id="cook-clock">${mmss(remain || secs)}</b></div><div><strong>${Math.round(secs / 60)}분 타이머</strong><p class="hint">원문에 적힌 시간이에요. 끝나면 진동과 음성으로 알려 드려요.</p></div>${btn(clock ? "일시정지" : "시작", "cookTimer", "btn alt", "timer")}</div>` : ""}
+  ${secs ? `<div class="cook-timer"><div class="cook-ring" id="cook-ring" style="--p:${Math.round((1 - remain / secs) * 100)}"><b id="cook-clock">${mmss(remain)}</b></div><div><strong>${Math.round(secs / 60)}분 타이머</strong><p class="hint">원문에 적힌 시간이에요. 끝나면 진동과 음성으로 알려 드려요.</p></div>${btn(clock ? "일시정지" : remain === 0 ? "다시 시작" : remain < secs ? "이어서 시작" : "시작", "cookTimer", "btn alt", "timer")}</div>` : ""}
   <div class="cook-nav">${btn("이전", "cookPrev", "btn alt", "chevron-left")}${btn("읽어주기", "cookSpeak", "btn alt", "volume-2")}${last ? btn("조리 완료 기록", "cookDone", "btn", "check") : btn("다음", "cookNext", "btn", "chevron-right")}</div>
   <details><summary>전체 재료 (${guide["인분"]}인분)</summary><p>${guide["재료 합계"].map((x) => esc(x["아이콘"] + " " + x["이름"]) + (x["분량(g)"] != null ? " " + fmt(x["분량(g)"]) + "g" : "")).join(" · ")}</p><p class="hint">${esc(guide["안내"])} · ${esc(guide["출처"])} · ${esc(guide["판단 방법"])}</p></details></div>`;
 }
@@ -273,6 +287,11 @@ async function scanBarcode(input) {
   return found[0]?.rawValue || "";
 }
 Object.assign(action, {
+  measureGuideLot: (id) => measureLotForm(id, true),
+  guideCart: async () => {
+    const r = await send("장바구니담기", { servings: guide["인분"], menu: guide["메뉴"] });
+    if (r) go("pantry");
+  },
   cookMode: (title) => openGuide({ title }),
   cookModeExt: (id) => openGuide({ recipe_id: id }),
   cookTab: async (k) => {
@@ -314,12 +333,15 @@ Object.assign(action, {
   },
   cookTimer: () => {
     if (clock) {
+      remain = Math.max(0, Math.ceil((timerEnds - Date.now()) / 1000));
       stopClock();
       paint();
       return;
     }
+    if (!remain) remain = guide["단계"][stepAt]["타이머(초)"];
+    timerEnds = Date.now() + remain * 1000;
     clock = setInterval(() => {
-      remain = Math.max(0, remain - 1);
+      remain = Math.max(0, Math.ceil((timerEnds - Date.now()) / 1000));
       const el = $("#cook-clock"),
         ring = $("#cook-ring"),
         total = guide["단계"][stepAt]["타이머(초)"] || 1;

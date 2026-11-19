@@ -79,6 +79,7 @@ def test_external_guide_uses_step_photos_and_validates_model(monkeypatch, client
         plan={"GuideDraft": {"steps": [{"index": 2, "action": "넣기", "ingredients": ["두부", "랍스터"], "tip": ""}]}},
     )
     g = client.post("/api/guide", json={"recipe_id": "77"}).json()
+    assert g["재료 원문"] == recipe["data"][0]["재료·분량"]
     steps = g["단계"][1:-1]  # 앞뒤 재료 준비·완성 단계를 뺀 원문 단계
     assert steps[0]["사진"] and steps[0]["동작"] == "볶기"
     assert steps[1]["타이머(초)"] == 600

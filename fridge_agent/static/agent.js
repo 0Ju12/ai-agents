@@ -98,7 +98,7 @@ const PERSONAS = {
     svg: `<svg viewBox="0 0 64 64" aria-hidden="true" class="ai-orb"><defs><radialGradient id="hk-ai-core"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#9ff0ff"/><stop offset="1" stop-color="#1fb6ea"/></radialGradient><radialGradient id="hk-ai-glow"><stop offset="0" stop-color="#2ccbff" stop-opacity=".55"/><stop offset="1" stop-color="#2ccbff" stop-opacity="0"/></radialGradient></defs><circle cx="32" cy="32" r="32" fill="#0a1622"/><path d="M0 12h64M0 22h64M0 32h64M0 42h64M0 52h64M12 0v64M22 0v64M32 0v64M42 0v64M52 0v64" stroke="#12304a" stroke-width=".5"/><circle cx="32" cy="32" r="24" fill="url(#hk-ai-glow)"/><g class="ai-ring"><circle cx="32" cy="32" r="22" fill="none" stroke="#2ccbff" stroke-opacity=".6" stroke-width=".9" stroke-dasharray="10 3 2 3"/></g><circle cx="32" cy="32" r="15.5" fill="none" stroke="#56dcff" stroke-width="5" stroke-dasharray="6.1 2"/><g class="ai-ring rev"><circle cx="32" cy="32" r="10.5" fill="none" stroke="#bff6ff" stroke-width="1.2" stroke-dasharray="3 2.5"/></g><circle cx="32" cy="32" r="6.5" fill="url(#hk-ai-core)"/><path d="M32 4v5M32 55v5M4 32h5M55 32h5" stroke="#56dcff" stroke-width="1.4" stroke-linecap="round"/></svg>`,
   },
 };
-const CHEF_COMMANDS = new Set("추천 집밥 외식 메뉴 대체 레시피 레시피저장 식품영양 검색 영양 미국영양 요리코치 조리 섭취 섭취삭제 사진식사 쇼핑 영상 영상링크 주간계획 장바구니담기 장바구니삭제 구매완료 입고 포장삭제 추가 삭제".split(" "));
+const CHEF_COMMANDS = new Set("추천 집밥 외식 메뉴 대체 레시피 레시피저장 식품영양 검색 영양 미국영양 요리코치 조리 섭취 섭취삭제 사진식사 쇼핑 영상 영상링크 레시피찜 찜해제 분량확인 주간계획 장바구니담기 장바구니삭제 구매완료 입고 포장삭제 추가 삭제".split(" "));
 const TRAINER_COMMANDS = new Set("운동 운동완료 운동자료 헬스장 부위 내루틴저장 내루틴삭제".split(" "));
 
 function searchCommand(m) {
@@ -161,7 +161,8 @@ function groupsList(m) {
   const g = m.groups;
   const sections = [
     ["바로 가능", "지금 재료로 바로 만들 수 있어요"],
-    ["조금만 사면", "1~2가지만 사면 만들 수 있어요"],
+    ["분량 확인", "있는 재료의 양만 확인하면 돼요"],
+    ["조금만 사면", "부족한 재료가 1~2가지예요"],
     ["국내 레시피", "식품안전나라 레시피에서 찾았어요"],
   ].filter(([k]) => g[k]?.length);
   if (!sections.length) return "";

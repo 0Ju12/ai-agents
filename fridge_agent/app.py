@@ -36,7 +36,7 @@ from backend.logging_agent.agent import LoggingAgent
 from api_models import ScreenState, ChatReply
 from calendar_adapter import earliest_window
 from domain.catalog import canonical, SUBSTITUTES
-from domain.kitchen import add_lot, add_text, cook, eat, inventory, leftovers, suggest
+from domain.kitchen import add_lot, add_text, cook, eat, inventory, leftovers, package_grams, shortages, suggest
 from domain.shopping import add_shortages, comparable
 from domain.training import GOALS, LEVELS, MOVES, routine
 from interpretation import COMMANDS, parse
@@ -302,7 +302,16 @@ def change(state, cmd, arg, params, day, emit):
         servings = int(params.get("servings", 1))
         if not 1 <= servings <= 20:
             raise ValueError("1~20인분으로 입력하세요.")
-        add_shortages(state, state.get("last_meal", {}), servings)
+        plan = state.get("last_meal", {})
+        if params.get("menu"):
+            meal = meals.get(str(params["menu"]))
+            if not meal:
+                raise ValueError("레시피 목록에서 메뉴를 다시 선택하세요.")
+            plan = {"메뉴": meal["title"], "예시 1인분(g)": meal["grams"]}
+            cart = state.get("cart", {})
+            for name in [name for name, row in cart.items() if row.get("meal") == meal["title"]]:
+                del cart[name]
+        add_shortages(state, plan, servings)
     elif cmd == "구매완료":
         name = canonical(arg)
         if name not in state.get("cart", {}):
@@ -317,6 +326,19 @@ def change(state, cmd, arg, params, day, emit):
             del state["cart"][name]
     elif cmd == "장바구니삭제":
         state.get("cart", {}).pop(canonical(arg), None)
+    elif cmd in {"레시피찜", "찜해제"}:
+        if arg not in meals:
+            raise ValueError("저장할 레시피를 찾지 못했어요.")
+        saved = state.setdefault("favorite_recipes", [])
+        if cmd == "레시피찜" and arg not in saved:
+            saved.append(arg)
+        elif cmd == "찜해제" and arg in saved:
+            saved.remove(arg)
+    elif cmd == "분량확인":
+        lot = next((x for x in state["lots"] if x["id"] == arg), None)
+        if not lot or lot["grams"] is not None:
+            raise ValueError("이미 분량이 반영됐거나 없는 포장이에요. 냉장고를 다시 확인하세요.")
+        lot["grams"] = package_grams(lot["item"], params.get("quantity"), params.get("unit", "g"))
     elif cmd == "레시피저장":
         import_recipe(state, params)
     elif cmd == "추가":
@@ -391,6 +413,12 @@ def change(state, cmd, arg, params, day, emit):
         if not match:
             raise ValueError("조리 2인분 15분 형식으로 입력하세요.")
         cook(state, int(match[1]), int(match[2]), day)
+        offer = state.get("latest_offer", {})
+        if offer.get("day") == day and state["records"][-1]["meal"] in offer["menus"]:
+            state["recommendation_counts"]["조리"] += 1
+            if offer.get("stock_group"):
+                state["recommendation_by_stock"][offer["stock_group"]]["조리"] += 1
+            state.pop("latest_offer")
         state["view_wanted"] = False
     elif cmd == "섭취":
         eat(state, arg, daily)
@@ -487,6 +515,9 @@ def snapshot(state):
         "건강": summary(state, day),
         "남은 음식": leftovers(state),
         "조리 기록": state["records"][-7:],
+        "찜한 레시피": state.get("favorite_recipes", []),
+        "추천 조리 통계": state.get("recommendation_counts", {"추천": 0, "조리": 0}),
+        "재고 입력별 추천 통계": state.get("recommendation_by_stock", {}),
         "운동 기록": state["workouts"][-7:],
         "설정": {
             k: state.get(k)
@@ -659,8 +690,23 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
             return korean_options(state, day, emit, None if wanted[0] or named else wanted[3] or None)
 
         extra = autopilot.run(state, message, meals, refs, day, emit, limit, find_media, named, more, find_korean, wanted)
+        offered = {x["메뉴"] for x in extra["추천 후보"]}
+        for group in extra["선택지"].values():
+            offered.update(x["메뉴"] for x in group if not x.get("국내"))
+        if offered:
+            stock = inventory(state, day)
+            group = "분량 입력 완료" if stock else "재고 미등록"
+            if any(row["unknown"] for row in stock.values()):
+                group = "미계량 포장 있음"
+            counts = state.setdefault("recommendation_counts", {"추천": 0, "조리": 0})
+            counts["추천"] += 1
+            grouped = state.setdefault("recommendation_by_stock", {}).setdefault(group, {"추천": 0, "조리": 0})
+            grouped["추천"] += 1
+            state["latest_offer"] = {"day": day, "menus": sorted(offered), "stock_group": group}
+        else:
+            state.pop("latest_offer", None)
         snap = snapshot(state)
-        merged = {**snap["계획"], **extra}
+        merged = {**snap["계획"], **extra} if extra["추천 후보"] else extra
         # 자동 진행 판단에서 모델이 문장까지 썼으면 답변 호출을 생략한다 (모델 호출 3회 → 2회)
         result = {"답변": extra["메시지"], **merged} if extra.get("메시지") else workflow.answer(message, merged, emit)
     if command == "레시피" and result.get("조회", {}).get("ok"):
@@ -818,7 +864,7 @@ def guide(body: GuideRequest):
     state = KitchenDB().read(body.session_id)[1]
     emit, steps = tracer(body.session_id)
     emit("node_start", "조리 가이드")
-    stock = snapshot(state)["냉장고"]
+    stock = inventory(state, today().isoformat())
     try:
         if body.recipe_id:
             row = state.get("external_recipes", {}).get(body.recipe_id)
@@ -839,6 +885,12 @@ def guide(body: GuideRequest):
                 meal["title"], meal["steps"], grams=meal["grams"], servings=body.servings,
                 stock=stock, source=meal.get("source", ""), emit=emit,
             )
+            missing, unchecked = shortages(meal["grams"], stock, body.servings)
+            result["부족량(g)"] = missing
+            for row in result["재료 합계"]:
+                name = row["이름"]
+                row["부족(g)"] = missing.get(name, 0)
+                row["분량 확인"] = name in unchecked
             media.decorate(result, "meal:" + meal["title"])
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc

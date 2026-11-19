@@ -44,12 +44,12 @@ def seed_demo(state, day):
     state["demo_seeded"] = True
 
 
-def ranked(state, meals, refs, day, limit=None, top=3, light=False):
+def ranked(state, meals, refs, day, limit=None, top=3, light=False, servings=1):
     """조건을 통과한 메뉴를 select_meal 과 같은 기준으로 줄 세우고, 사람이 읽을 근거를 붙인다."""
     available = inventory(state, day)
     out = []
     for title in meals:
-        plan = select_meal({**state, "wanted": title}, meals, refs, day, limit)
+        plan = select_meal({**state, "wanted": title}, meals, refs, day, limit, servings=servings)
         if not plan.get("메뉴"):
             continue
         used = [k for k in plan["예시 1인분(g)"] if k in available]
@@ -60,16 +60,22 @@ def ranked(state, meals, refs, day, limit=None, top=3, light=False):
         reasons = []
         if soon and soon[0][1] <= 3:
             reasons.append(f"기한 임박 {soon[0][0]} D-{soon[0][1]}" if soon[0][1] > 0 else f"{soon[0][0]} 오늘까지")
-        reasons.append("재료 모두 보유" if not plan["부족분"] else f"부족 {len(plan['부족분'])}종({', '.join(plan['부족분'])})")
+        missing, unchecked = plan["부족분"], plan["수량 확인"]
+        if missing:
+            reasons.append("부족 " + ", ".join(f"{n} {plan['부족량(g)'][n]:g}g" for n in missing))
+        if unchecked:
+            reasons.append("분량 확인 · " + ", ".join(unchecked))
+        if not missing and not unchecked:
+            reasons.append(f"{servings}인분 재료 충분")
         reasons.append(f"조리 {plan['조리시간(분)']}분")
         protein = plan["영양"].get("protein_g")
         if protein is not None:
-            reasons.append(f"단백질 {protein:g}g")
+            reasons.append(f"1인분 단백질 {protein:g}g")
         kcal = plan["예상 kcal"]
         focus = set(state.get("health_focus", []))
         heavy = light or "weight" in focus or state.get("goal") == "체중 관리"
         if heavy and kcal is not None:
-            reasons.insert(0, f"{kcal}kcal")
+            reasons.insert(0, f"1인분 {kcal}kcal")
         nut = plan["영양"]
         health_key = 0
         for name, field, unit in (("sodium", "sodium_mg", "mg"), ("sugar", "carb_g", "g"), ("fat", "fat_g", "g")):
@@ -77,21 +83,22 @@ def ranked(state, meals, refs, day, limit=None, top=3, light=False):
                 health_key += nut[field] / {"sodium_mg": 2000, "carb_g": 130, "fat_g": 50}[field]  # 하루 기준량 대비 비율 합
                 reasons.append({"sodium": "나트륨", "sugar": "탄수화물", "fat": "지방"}[name] + f" {nut[field]:g}{unit}")
         key = (
-            len(plan["부족분"]),
+            len(missing),
+            len(unchecked),
             round(health_key, 3),
             (kcal if kcal is not None else 9999) if heavy else 0,
             soon[0][1] if soon else 999,
             -(protein or 0) if state.get("diet") == "단백질 우선" else 0,
             plan["조리시간(분)"],
         )
-        out.append((key, {"메뉴": plan["메뉴"], "근거": reasons, "부족분": plan["부족분"], "조리시간(분)": plan["조리시간(분)"], "예상 kcal": plan["예상 kcal"], "단백질(g)": protein}))
+        out.append((key, {"메뉴": plan["메뉴"], "근거": reasons, "부족분": missing, "수량 확인": unchecked, "부족량(g)": plan["부족량(g)"], "조리시간(분)": plan["조리시간(분)"], "예상 kcal": plan["예상 kcal"], "단백질(g)": protein}))
     out.sort(key=lambda x: x[0])
     return [x[1] for x in out[:top]]
 
 
 class AutoPlan(BaseModel):
     actions: list[Literal["메뉴확정", "장바구니", "영상", "조리모드"]] = Field(default_factory=list, max_length=4)
-    servings: int = Field(default=1, ge=1, le=6, description="사용자가 말한 인원·인분. 말하지 않았으면 1")
+    servings: int = Field(default=1, ge=1, le=20, description="사용자가 말한 인원·인분. 말하지 않았으면 1")
     reason: str = Field(default="", max_length=160)
     message: str = Field(default="", max_length=400, description="사용자에게 보여 줄 2~3문장. top 의 메뉴·근거 값만 쓰고 숫자를 새로 만들지 않는다. 마크다운 금지")
 
@@ -105,10 +112,17 @@ PROMPT = (
 
 
 def servings_in(text):
-    m = re.search(r"(\d{1,2})\s*(?:인분|명|사람)", text)
-    if m and 1 <= int(m[1]) <= 6:
-        return int(m[1])
-    return {"둘이": 2, "셋이": 3, "넷이": 4, "혼자": 1}.get(next((w for w in ("둘이", "셋이", "넷이", "혼자") if w in text), ""), 1)
+    match = re.search(r"(\d+)\s*(?:인분|명|사람)", text)
+    if match:
+        count = int(match[1])
+        if not 1 <= count <= 20:
+            raise ValueError("추천 인원은 1~20명으로 입력하세요.")
+        return count
+    for word, count in (("혼자", 1), ("한", 1), ("둘이", 2), ("두", 2), ("셋이", 3), ("세", 3), ("넷이", 4), ("네", 4)):
+        pattern = word if len(word) > 1 else word + r"\s*(?:명|사람|인분)"
+        if re.search(pattern, text):
+            return count
+    return None
 
 
 def decide(message, top, emit):
@@ -117,7 +131,7 @@ def decide(message, top, emit):
     actions = ["메뉴확정", "영상", "조리모드"]
     if top and not any(w in message for w in NO_BUY_WORDS):
         actions.insert(1, "장바구니")
-    servings, how, reason, said = servings_in(message), "규칙", "상황 문장에서 시간·식단·인원을 반영하고 1순위 메뉴로 진행", ""
+    servings, how, reason, said = servings_in(message) or 1, "규칙", "상황 문장에서 시간·식단·인원을 반영하고 1순위 메뉴로 진행", ""
     if os.getenv("AUTOPILOT_LLM", "1") == "1" and gateway.configured():
         try:
             plan = gateway.structured("자동 진행", PROMPT, {"message": message, "top": top}, AutoPlan)
@@ -138,7 +152,8 @@ def options(pool, shown=(), kr=()):
     """선택지 묶음: 바로 가능 · 1~2개만 사면 가능 · 국내 레시피. 이미 보여 준 메뉴는 뺀다."""
     fresh = [x for x in pool if x["메뉴"] not in shown]
     return {
-        "바로 가능": [x for x in fresh if not x["부족분"]][:4],
+        "바로 가능": [x for x in fresh if not x["부족분"] and not x.get("수량 확인")][:4],
+        "분량 확인": [x for x in fresh if not x["부족분"] and x.get("수량 확인")][:4],
         "조금만 사면": [x for x in fresh if 1 <= len(x["부족분"]) <= 2][:3],
         "국내 레시피": [x for x in kr if x["메뉴"] not in shown][:4],
     }
@@ -148,31 +163,56 @@ def run(state, message, meals, refs, day, emit, limit=None, media=None, named=No
     """자동 진행을 실행하고 결과 묶음을 돌려준다. media(menu) 는 영상 조회, kr() 은 국내 레시피 후보 조회 함수."""
     emit("node_start", "자동 진행")
     hits, cue, light, said_menu = wanted or ([], "", False, "")
-    pool = ranked(state, meals, refs, day, limit, top=len(meals), light=light)
-    if hits:  # 말한 메뉴·종류에 맞는 레시피를 앞으로 (그 안에서는 원래 순서 유지)
-        inside = {x["메뉴"] for x in pool}
-        if limit is not None or state.get("minutes"):
-            # 콕 집어 말한 메뉴는 가용 시간을 넘어도 후보로 보여 주고, 넘는 시간을 근거에 적는다
-            wide = {**state, "minutes": 240}
-            for x in ranked(wide, {t: meals[t] for t in hits if t not in inside}, refs, day, None, top=len(hits), light=light):
-                over = x["조리시간(분)"] - min(state["minutes"], limit or state["minutes"])
-                x["근거"].insert(0, f"가용 시간보다 {over}분 더 걸려요")
-                x["시간 초과"] = over
-                pool.append(x)
-        pool.sort(key=lambda x: (x["메뉴"] not in hits, x.get("시간 초과", 0) > 0 and x["메뉴"] not in hits))
-    if named:  # 사용자가 메뉴 이름을 그대로 말했으면 그 메뉴를 1순위로
-        pool.sort(key=lambda x: x["메뉴"] != named)
-    missed = said_menu if said_menu and not hits and not named else ""
     shown = state.get("shown_picks", []) if more else []
-    pool = [x for x in pool if x["메뉴"] not in shown] if more else pool
-    kr_rows = kr() if kr else []
+    only_stock = any(word in message for word in ("있는 걸로만", "있는 재료로만", "있는 것만", "있는 재료만"))
+    if more:
+        only_stock = state.get("recommend_stock_only", False)
+    missed = said_menu if said_menu and not hits and not named else ""
+
+    def candidates(servings):
+        pool = ranked(state, meals, refs, day, limit, top=len(meals), light=light, servings=servings)
+        if hits:  # 말한 메뉴·종류에 맞는 레시피를 앞으로 (그 안에서는 원래 순서 유지)
+            inside = {x["메뉴"] for x in pool}
+            if limit is not None or state.get("minutes"):
+                # 콕 집어 말한 메뉴는 가용 시간을 넘어도 후보로 보여 주고, 넘는 시간을 근거에 적는다
+                wide = {**state, "minutes": 240}
+                for x in ranked(wide, {t: meals[t] for t in hits if t not in inside}, refs, day, None, top=len(hits), light=light, servings=servings):
+                    over = x["조리시간(분)"] - min(state["minutes"], limit or state["minutes"])
+                    x["근거"].insert(0, f"가용 시간보다 {over}분 더 걸려요")
+                    x["시간 초과"] = over
+                    pool.append(x)
+            pool.sort(key=lambda x: (x["메뉴"] not in hits, x.get("시간 초과", 0) > 0 and x["메뉴"] not in hits))
+        if named:  # 사용자가 메뉴 이름을 그대로 말했으면 그 메뉴를 1순위로
+            pool.sort(key=lambda x: x["메뉴"] != named)
+        pool = [x for x in pool if x["메뉴"] not in shown] if more else pool
+        if only_stock:
+            pool = [x for x in pool if not x["부족분"]]
+        return pool
+
+    explicit_servings = servings_in(message)
+    servings = explicit_servings or (state.get("recommend_servings", 1) if more else 1)
+    pool = candidates(servings)
+    kr_rows = kr() if kr and not only_stock else []
     choice = options(pool, shown, kr_rows)
     top3 = pool[:3]
     top = top3[0] if top3 else None
     if more:  # "다른 후보" 요청: 후보만 새로 보여 주고 다른 작업은 하지 않는다 (모델 호출 없음)
-        actions, servings, how, reason, said = [], 1, "규칙", "이미 보여 드린 후보를 빼고 다음 후보를 골랐어요", ""
+        actions, how, reason, said = [], "규칙", "이미 보여 드린 후보를 빼고 다음 후보를 골랐어요", ""
     else:
-        actions, servings, how, reason, said = decide(message, top, emit)
+        actions, inferred, how, reason, said = decide(message, top, emit)
+        if inferred != servings and explicit_servings is None:
+            servings = inferred
+            pool = candidates(servings)
+            choice = options(pool, shown, kr_rows)
+            top3 = pool[:3]
+            top = top3[0] if top3 else None
+            said = ""
+            if not top:
+                actions = []
+    if explicit_servings and not more and inferred != servings:
+        said = ""
+    state["recommend_servings"] = servings
+    state["recommend_stock_only"] = only_stock
     listed = [x["메뉴"] for group in choice.values() for x in group] + [x["메뉴"] for x in top3]
     state["shown_picks"] = list(dict.fromkeys((shown if more else []) + listed))[-60:]
     done = []
@@ -211,6 +251,7 @@ def run(state, message, meals, refs, day, emit, limit=None, media=None, named=No
         "자동 진행": done,
         "추천 후보": top3,
         "선택지": choice,
+        **({"안내": "지금 재고로 이 인분을 만들 수 있는 메뉴가 없어요. 인분을 줄이거나 재료를 추가해 주세요."} if only_stock and not top else {}),
         "더보기": more,
         "확정 메뉴": top["메뉴"] if top and "메뉴확정" in actions else None,
         "인분": servings,

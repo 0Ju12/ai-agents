@@ -157,9 +157,50 @@ def check(out, base, executable):
         retry.wait_for(state="hidden")
         assert len(ids) == 2 and ids[0] == ids[1]
         assert water() == before + 500
+        page.unroute("**/api/chat", lose_first_reply)
+        page.goto(base + "/#pantry")
+        page.get_by_role("button", name="재료 추가", exact=True).first.click()
+        d = page.locator("dialog[open]")
+        d.get_by_label("재료 이름").fill("양배추")
+        d.get_by_role("button", name="냉장고에 넣기").click()
+        d.wait_for(state="hidden")
+        page.goto(base + "/#recipes")
+        page.get_by_label("메뉴 검색").fill("양배추 두부덮밥")
+        recipe = page.locator("#meal-list .recipe-entry").first
+        recipe.get_by_role("button", name="찜하기").click()
+        recipe.get_by_role("button", name="찜 해제").wait_for()
+        page.reload()
+        page.get_by_role("button", name="찜한 레시피", exact=True).click()
+        assert page.locator("#meal-list .recipe-entry").count() == 1
+        recipe.get_by_role("button", name="조리 모드").click()
+        d.get_by_role("button", name="+", exact=True).click()
+        d.get_by_text("2인분", exact=True).wait_for()
+        d.get_by_role("button", name="분량 입력").click()
+        d.get_by_label("남은 양").fill("140")
+        d.get_by_role("button", name="냉장고에 반영").click()
+        d.get_by_text("60g 부족", exact=True).wait_for()
+        snap("recipe-portions-mobile")
+        cart = d.locator('[data-do="guideCart"]')
+        cart.click()
+        page.wait_for_url("**/#pantry")
+        page.get_by_text("양배추 · 60g", exact=True).wait_for()
+        page.goto(base + "/#recipes")
+        page.get_by_role("button", name="최근 조리", exact=True).click()
+        assert page.locator("#meal-list .recipe-entry").count() >= 1
+        page.get_by_role("button", name="전체", exact=True).click()
+        page.get_by_label("메뉴 검색").fill("사과 아몬드 오트죽")
+        page.locator("#meal-list").get_by_role("button", name="조리 모드").click()
+        d.get_by_role("button", name="3단계", exact=True).click()
+        page.clock.install()
+        d.get_by_role("button", name="시작", exact=True).click()
+        page.clock.fast_forward(360_000)
+        d.get_by_role("button", name="다시 시작").wait_for()
+        assert d.locator("#cook-clock").inner_text() == "00:00"
+        d.get_by_role("button", name="다시 시작").click()
+        assert d.locator("#cook-clock").inner_text() == "06:00"
         assert not errs, errs
         print(
-            "PASS · pantry, cook, intake, exercise, water, shopping, calendar, coach portraits, search cards, execution trace, retry after reload"
+            "PASS · pantry, cook, intake, exercise, water, shopping, calendar, coach portraits, search cards, execution trace, retry after reload, saved recipes, measured lots, multi-serving cart and timer restart"
         )
         b.close()
 

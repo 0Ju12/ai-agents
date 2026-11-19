@@ -166,6 +166,7 @@ def build(title, steps, grams=None, raw_ingredients=None, photos=None, servings=
         "메뉴": title,
         "인분": servings,
         "출처": source,
+        "재료 원문": raw_ingredients or "",
         "판단 방법": method,
         "대표 아이콘": icon(names[0]) if names else "🍽️",
         "재료 합계": [
