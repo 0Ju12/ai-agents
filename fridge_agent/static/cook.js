@@ -57,10 +57,7 @@ function stage(card) {
     return `<figure class="cook-photo"><video src="${esc(card["클립"])}" autoplay muted loop playsinline aria-label="${esc(card["순서"] + "단계 조리 장면")}"></video><figcaption>AI 생성 조리 장면 · 검수 완료 · 실제와 다를 수 있어요</figcaption></figure>`;
   if (card["사진"])
     return `<figure class="cook-photo cook-scene anim-${esc(card["애니메이션"])}"><img class="kb" src="${esc(card["사진"])}" alt="${esc(card["순서"] + "단계 조리 사진")}" onerror="this.closest('figure').classList.add('broken')">${card["깊이"] ? `<canvas class="depth3d" data-img="${esc(card["사진"])}" data-depth="${esc(card["깊이"])}" aria-hidden="true"></canvas>` : ""}<div class="scene-fx" aria-hidden="true">${fxLayer(card)}</div><figcaption>식품안전나라 조리 과정 사진${card["깊이"] ? " · 입체 움직임" : ""}</figcaption></figure>`;
-  const items = card["재료"].length ? card["재료"] : [{ 아이콘: guide["대표 아이콘"], 이름: "" }];
-  return `<div class="cook-stage anim-${esc(card["애니메이션"])}" role="img" aria-label="${esc(card["동작"] + " " + card["재료"].map((x) => x["이름"]).join(", "))}">
-    <div class="cook-items">${items.map((x, i) => `<span style="--i:${i}">${esc(x["아이콘"])}</span>`).join("")}</div>
-    <div class="cook-vessel">${vessel[card["애니메이션"]] || "🍲"}</div><div class="cook-fx" aria-hidden="true"><i></i><i></i><i></i></div></div>`;
+  return kitchenScene(card, guide["대표 아이콘"]);
 }
 function tabs() {
   return `<div class="cook-tabs" role="tablist">${[
@@ -116,15 +113,18 @@ function cookCard() {
   const card = guide["단계"][stepAt],
     total = guide["단계"].length,
     last = stepAt === total - 1;
+  const full = dialog.classList.contains("cook-full"),
+    secs = card["타이머(초)"];
   return `<div class="cook">
   <div class="cook-progress" aria-label="${stepAt + 1}/${total}단계"><i style="width:${((stepAt + 1) / total) * 100}%"></i></div>
-  <p class="eyeline">${stepAt + 1} / ${total}단계 · ${esc(card["동작"])}${card["불 세기"] ? " · " + esc(card["불 세기"]) : ""}</p>
+  <div class="cook-head"><p class="eyeline">${stepAt + 1} / ${total}단계 · ${esc(card["동작"])}${card["불 세기"] ? ` · <span class="cook-heat">🔥 ${esc(card["불 세기"])}</span>` : ""}</p>${btn(full ? "작게 보기" : "크게 보기", "cookFull", "linkbtn", "panels-top-left")}</div>
+  <div class="step-dots" aria-label="단계 이동">${guide["단계"].map((c, i) => `<button type="button" data-do="cookGo" data-arg="${i}" class="${i === stepAt ? "on" : i < stepAt ? "done" : ""}" aria-label="${i + 1}단계${i === stepAt ? " (현재)" : ""}">${i + 1}</button>`).join("")}</div>
   ${tabs()}
-  ${tab === "anim" ? stage(card) : tab === "video" ? videoPane() : socialPane()}
+  <div class="cook-body">${tab === "anim" ? stage(card) : tab === "video" ? videoPane() : socialPane()}</div>
   <p class="cook-text">${esc(card["설명"])}</p>
   ${card["팁"] ? `<p class="hint">${esc(card["팁"])}</p>` : ""}
   ${card["재료"].length ? `<div class="btnbar">${card["재료"].map((x) => `<span class="pill ${x["보유"] ? "" : "warn"}">${esc(x["아이콘"] + " " + x["이름"])}${x["분량(g)"] != null ? " " + fmt(x["분량(g)"]) + "g" : ""}${x["보유"] ? "" : " · 미보유"}</span>`).join("")}</div>` : ""}
-  ${card["타이머(초)"] ? `<div class="cook-timer"><b id="cook-clock">${mmss(remain || card["타이머(초)"])}</b>${btn(clock ? "일시정지" : "타이머 시작", "cookTimer", "btn alt", "timer")}</div>` : ""}
+  ${secs ? `<div class="cook-timer"><div class="cook-ring" id="cook-ring" style="--p:${Math.round((1 - (remain || secs) / secs) * 100)}"><b id="cook-clock">${mmss(remain || secs)}</b></div><div><strong>${Math.round(secs / 60)}분 타이머</strong><p class="hint">원문에 적힌 시간이에요. 끝나면 진동과 음성으로 알려 드려요.</p></div>${btn(clock ? "일시정지" : "시작", "cookTimer", "btn alt", "timer")}</div>` : ""}
   <div class="cook-nav">${btn("이전", "cookPrev", "btn alt", "chevron-left")}${btn("읽어주기", "cookSpeak", "btn alt", "volume-2")}${last ? btn("조리 완료 기록", "cookDone", "btn", "check") : btn("다음", "cookNext", "btn", "chevron-right")}</div>
   <details><summary>전체 재료 (${guide["인분"]}인분)</summary><p>${guide["재료 합계"].map((x) => esc(x["아이콘"] + " " + x["이름"]) + (x["분량(g)"] != null ? " " + fmt(x["분량(g)"]) + "g" : "")).join(" · ")}</p><p class="hint">${esc(guide["안내"])} · ${esc(guide["출처"])} · ${esc(guide["판단 방법"])}</p></details></div>`;
 }
@@ -269,6 +269,11 @@ Object.assign(action, {
     if (f) f.src = f.src.replace(/start=\d+/, "start=" + Number(sec)) + (f.src.includes("autoplay") ? "" : "&autoplay=1");
   },
   cookNext: () => showStep(stepAt + 1),
+  cookGo: (i) => showStep(Number(i)),
+  cookFull: () => {
+    dialog.classList.toggle("cook-full");
+    paint();
+  },
   cookPrev: () => showStep(stepAt - 1),
   cookSpeak: () => {
     const c = guide["단계"][stepAt];
@@ -282,8 +287,11 @@ Object.assign(action, {
     }
     clock = setInterval(() => {
       remain = Math.max(0, remain - 1);
-      const el = $("#cook-clock");
+      const el = $("#cook-clock"),
+        ring = $("#cook-ring"),
+        total = guide["단계"][stepAt]["타이머(초)"] || 1;
       if (el) el.textContent = mmss(remain);
+      if (ring) ring.style.setProperty("--p", Math.round((1 - remain / total) * 100));
       if (!remain) {
         stopClock();
         navigator.vibrate?.([300, 120, 300]);
@@ -340,110 +348,5 @@ Object.assign(forms, {
 dialog.addEventListener("close", () => {
   stopClock();
   stopVoice();
-});
-
-// ── 한끼 Agent 자동 진행 결과 · 화면 안 영상 ─────────────────────
-let agentMedia = null,
-  agentMenu = "",
-  agentVideo = 0;
-function ytFrame(v, start) {
-  return `<div class="video-wrap"><iframe src="https://www.youtube.com/embed/${esc(v.id)}?start=${start || 0}&rel=0&playsinline=1" title="${esc(v.title)}" allow="encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe></div>`;
-}
-function linkForm(menu) {
-  return `<form class="form inline-link" data-form="mediaLink"><input type="hidden" name="menu" value="${esc(menu)}"><label>YouTube·Instagram 링크로 추가<input name="url" type="url" required placeholder="https://www.youtube.com/watch?v=… 또는 https://www.instagram.com/reel/…"></label><button class="btn alt" type="submit">${ic("plus")}화면에 추가</button><p class="footnote">키가 없어도 붙인 링크는 이 메뉴의 영상 탭과 조리 모드에서 바로 재생돼요.</p></form>`;
-}
-function inlineMedia(info, menu) {
-  if (!info) return '<p class="hint" role="status">영상을 찾고 있어요…</p>';
-  const yt = info.youtube,
-    ig = info.instagram;
-  let html = "";
-  if (yt.ok && yt.data.length) {
-    const v = yt.data[Math.min(agentVideo, yt.data.length - 1)];
-    html += ytFrame(v, 0) + `<div class="btnbar">${yt.data.map((x, i) => btn((i === agentVideo ? "▶ " : "") + x.title.slice(0, 24), "agentVideo", "chip", "", i)).join("")}</div>`;
-  } else html += providerNote(yt, "YouTube");
-  if (ig.ok && ig.data.length)
-    html += ig.data
-      .slice(0, 2)
-      .map((x) => `<blockquote class="instagram-media" data-instgrm-permalink="${esc(x.url)}" data-instgrm-version="14"><a href="${esc(x.url)}" rel="noopener noreferrer">${esc(x.title)}</a></blockquote>`)
-      .join("");
-  else html += `<p class="hint">Instagram · ${esc(errors[ig.error] || "게시물이 없어요.")} ${a("해시태그에서 보기", info["직접 검색"].Instagram)}</p>`;
-  return html + linkForm(menu);
-}
-function paintAgentMedia() {
-  const box = $("#agent-media");
-  if (!box) return;
-  box.innerHTML = inlineMedia(agentMedia, agentMenu);
-  if (agentMedia?.instagram?.ok) loadInstagram();
-}
-function agentResult(msg, r) {
-  const p = r["계획"],
-    done = p["자동 진행"],
-    picks = p["추천 후보"] || [];
-  agentMenu = p["확정 메뉴"] || picks[0]?.["메뉴"] || "";
-  agentMedia = p["영상"];
-  agentVideo = 0;
-  const undo = (u) => (u ? btn("되돌리기", "undo", "linkbtn", "", JSON.stringify([].concat(u))) : "");
-  sheet(
-    "한끼 Agent",
-    `<div class="agent-result"><p class="agent-said">“${esc(msg)}”</p>
-    ${p["답변"] ? `<p class="agent-answer">${esc(p["답변"])}</p>` : ""}
-    <h3 class="guide-head">제가 진행한 일</h3>
-    ${done.length ? `<ol class="done-list">${done.map((d) => `<li>${ic("circle-check")}<div><strong>${esc(d["작업"])}</strong><small>${esc(d["결과"])}</small></div>${undo(d["되돌리기"])}</li>`).join("")}</ol>` : `<p>${esc(p["안내"] || "조건에 맞는 메뉴가 없어요. 시간이나 조건을 바꿔 말해 주세요.")}</p>`}
-    <p class="footnote">판단 · ${esc(p["판단 방법"])} · ${esc(p["판단 이유"])}</p>
-    ${picks.length ? `<h3 class="guide-head">추천 후보</h3><div class="picks">${picks.map((x, i) => `<article class="pick ${x["메뉴"] === agentMenu ? "on" : ""}"><b>${i + 1}</b><div><strong>${esc(x["메뉴"])}</strong><small>${x["근거"].map(esc).join(" · ")}</small></div>${x["메뉴"] === agentMenu ? pill("확정") : btn("이걸로", "agentPick", "chip", "", x["메뉴"])}</article>`).join("")}</div>` : ""}
-    ${p["조리 모드"] ? `<div class="btnbar">${btn(p["조리 모드"].servings + "인분 조리 시작", "agentCook", "btn", "timer", JSON.stringify(p["조리 모드"]))}${Object.keys(r["장바구니"] || {}).length ? btn("장바구니 보기", "pantry", "btn alt", "shopping-bag") : ""}</div>` : ""}
-    ${agentMenu ? `<h3 class="guide-head">${esc(agentMenu)} 영상</h3><div id="agent-media"></div>` : ""}
-    </div><details><summary>이번 실행 과정 (${r["추적"].length}단계)</summary>${trace(r["추적"])}</details>`,
-  );
-  paintAgentMedia();
-}
-async function refreshAgentMedia() {
-  const meal = catalog.meals.find((m) => m.title === agentMenu);
-  agentMedia = await api("/api/guide/media", "POST", { menu: agentMenu, steps: meal ? meal.steps : [] });
-  paintAgentMedia();
-}
-Object.assign(action, {
-  situation: (text) => {
-    const box = $("#agent-msg");
-    if (box) {
-      box.value = text;
-      box.focus();
-    } else send(text, {}, true);
-  },
-  agentVideo: (i) => {
-    agentVideo = Number(i);
-    paintAgentMedia();
-  },
-  agentPick: (menu) => send(menu + " 먹고 싶어", {}, true),
-  agentCook: async (raw) => {
-    const c = JSON.parse(raw);
-    guide = await api("/api/guide", "POST", { title: c.title, servings: c.servings });
-    mediaInfo = null;
-    videoAt = 0;
-    tab = "anim";
-    sheet(guide["메뉴"] + " · 조리 모드", "");
-    showStep(0);
-  },
-  undo: async (raw) => {
-    const cmds = JSON.parse(raw);
-    for (const c of cmds) await send(c, {}, false);
-    note("되돌렸어요.");
-  },
-  demo: async () => {
-    if (!confirm("지금 냉장고와 장바구니를 비우고 예시 재료 18가지로 채울까요?")) return;
-    const r = await api("/api/demo", "POST", {});
-    st = { ...r, 계획: r["현재 추천"] };
-    render();
-    note("예시 재료로 채웠어요.");
-  },
-});
-Object.assign(forms, {
-  mediaLink: async (v, f) => {
-    await api("/api/chat", "POST", { message: "영상링크", params: { menu: v.menu, url: v.url.trim() } });
-    note("링크를 추가했어요.");
-    if (guide && dialog.open && $("#sheet-body .cook")) {
-      mediaInfo = null;
-      await ensureMedia();
-    } else await refreshAgentMedia();
-  },
+  dialog.classList.remove("cook-full");
 });

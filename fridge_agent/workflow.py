@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from typing import TypedDict
 from urllib.parse import quote
 from langgraph.graph import StateGraph, START, END
@@ -24,7 +25,7 @@ class Flow(TypedDict, total=False):
 
 ANSWER_PROMPT = (
     "결과 JSON 을 바탕으로 사용자 요청에 3~4문장 한국어로 답한다. 결과에 있는 값만 쓰고 숫자를 새로 만들지 않는다. "
-    "실패한 조회는 실패했다고 말한다. 의료 진단처럼 말하지 않는다."
+    "실패한 조회는 실패했다고 말한다. 의료 진단처럼 말하지 않는다. 마크다운 기호(**, #, -, 목록)를 쓰지 않고 평문으로 쓴다."
 )
 
 
@@ -38,6 +39,7 @@ def answer(request, output, emit):
         emit("error", "응답 문장", reason="구조화 결과만 반환")
         return output
     emit("llm_decision", "응답 문장", method="model", decision="answer", reason="확인된 결과 요약")
+    text = re.sub(r"[*#`]+", "", text).strip()
     return {"답변": text[:800], **output}
 
 
@@ -106,7 +108,8 @@ def execute(command, argument, local, emit, stock=(), events=None, request=None,
         return {}
 
     def plan(s):
-        tasks, reason = Planner.plan(command, argument, request, emit, stock)
+        # 자동 진행(speak=False)은 뒤에서 모델이 할 일을 고르므로 여기서는 규칙 계획만 써서 호출을 줄인다
+        tasks, reason = Planner.plan(command, argument, request if speak else None, emit, stock)
         if command == "검색" and not argument:
             tasks = []
         base_tools.update(t.tool for t in Planner.tasks(command, argument))

@@ -63,23 +63,30 @@ def routine(state, available):
     minutes = min(max(available, 0), state.get("exercise_minutes", 10))
     if minutes < 5:
         return {"body": body, "minutes": 0, "steps": [], "summary": "운동 시간 부족 · 5분 이상 확보하세요."}
-    move, guide = MOVES[body][difficulty]
-    if difficulty and "덤벨" in state.get("gear", []) and body in EQUIPMENT:
-        move, guide = EQUIPMENT[body]
+    # 숙련도에 맞는 동작 2~3개를 번갈아 하는 서킷: 초보는 쉬운 두 동작, 중급은 세 동작, 숙련은 어려운 동작 위주
+    picks = {0: [0, 1], 1: [0, 1, 2], 2: [2, 1, 2]}[difficulty]
+    chosen = []
+    for i in picks:
+        item = MOVES[body][i]
+        if i == 2 and difficulty and "덤벨" in state.get("gear", []) and body in EQUIPMENT and EQUIPMENT[body] not in chosen:
+            item = EQUIPMENT[body]
+        if item not in chosen:
+            chosen.append(item)
     work = (20, 30, 40)[difficulty]
     if easier:
         work = max(15, work - 5)
-    steps = [
-        "제자리 걷기와 가벼운 관절 움직임 1분",
-        f"{move} {work}초 + 휴식 {60 - work}초를 {minutes - 2}회 · {guide}",
-        "천천히 호흡하며 마무리 1분",
-    ]
+    rounds = max(1, (minutes - 2) // len(chosen))  # 한 세트 = 운동 + 휴식 1분
+    steps = ["제자리 걷기와 가벼운 관절 움직임 1분"]
+    steps += [f"{name} {work}초 + 휴식 {60 - work}초 × {rounds}세트 · {guide}" for name, guide in chosen]
+    steps.append("천천히 호흡하며 마무리 1분")
+    move = " · ".join(name for name, _ in chosen)
     return {
         "body": body,
         "level": level,
         "minutes": minutes,
         "steps": steps,
         "move": move,
+        "exercises": [{"name": n, "guide": g, "work_sec": work, "rest_sec": 60 - work, "sets": rounds} for n, g in chosen],
         "reason": "최근 어려움 피드백으로 강도 조정"
         if easier
         else f"{level} · {state.get('goal', '체력')} · 보유 기구 기준",

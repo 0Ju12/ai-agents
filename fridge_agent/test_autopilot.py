@@ -74,3 +74,25 @@ def test_pasted_links_play_without_keys():
     m = TestClient(api.app).post("/api/guide/media", json={"menu": "두부 달걀찜", "steps": ["a", "b"]}).json()
     assert m["youtube"]["ok"] and m["youtube"]["data"][0]["id"] == "abcdefghijk" and m["youtube"]["data"][0]["step_starts"] == [None, None]
     assert m["instagram"]["ok"] and m["instagram"]["data"][0]["url"].endswith("/p/C1aBcDeFgH/")
+
+
+def test_model_reply_comes_with_plan_to_save_a_call(monkeypatch):
+    """자동 진행 판단에서 문장까지 받으면 별도 답변 호출을 하지 않는다(해석 1 + 판단 1 = 2회)."""
+    api.run("데모")
+    monkeypatch.setenv("GMS_KEY", "unit-test-value")
+    FakeChat.calls.clear()
+    monkeypatch.setattr(
+        gateway, "ChatOpenAI",
+        FakeChat.factory(decide={"action": "추천"}, plan={"AutoPlan": {"actions": ["메뉴확정"], "message": "두부가 **내일까지라** 두부 요리로 골랐어요."}}, answer="쓰이면 안 되는 문장"),
+    )
+    p = api.run("오늘 저녁 뭐 먹지")["계획"]
+    assert p["답변"] == "두부가 내일까지라 두부 요리로 골랐어요."
+    assert len(FakeChat.calls) == 2
+
+
+def test_workout_sentence_is_not_a_gym_search():
+    p = api.run("어깨 운동 30분 하고 싶어")["계획"]
+    r = p["운동 루틴"]
+    assert r["body"] == "어깨" and r["minutes"] == 30 and len(r["exercises"]) >= 2
+    assert api.run("초보 하체 루틴 20분")["계획"]["운동 루틴"]["level"] == "초보"
+    assert "어느 동네" in api.run("헬스장 찾아줘")["계획"]["안내"]

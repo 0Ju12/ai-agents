@@ -472,12 +472,19 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
     add_text(state, intent.add)
     if intent.remove:
         state["lots"] = [l for l in state["lots"] if l["item"] not in {canonical(x) for x in intent.remove}]
-    update_settings(
-        state,
-        intent.model_dump(
-            include={"minutes", "goal", "body", "diet", "area", "budget_krw"}, exclude_none=True
-        ),
-    )
+    if command == "운동":  # 운동 요청의 분은 식사 가용 시간이 아니라 운동 시간이다
+        update_settings(state, {k: v for k, v in {"body": intent.body, "level": intent.level, "exercise_minutes": intent.minutes}.items() if v})
+    else:
+        update_settings(
+            state,
+            intent.model_dump(
+                include={"minutes", "goal", "body", "diet", "area", "budget_krw"}, exclude_none=True
+            ),
+        )
+    if command == "헬스장":  # '헬스장 찾아줘'의 '찾아줘'를 지역으로 검색하지 않는다
+        arg = re.sub(r"(근처|주변|찾아\s*줘|알려\s*줘|추천\s*해?\s*줘|어디\s*있어|어디|있어|좀|\?)", "", arg).strip()
+    if command == "헬스장" and not arg and not state.get("area"):
+        command, arg = "확인", "어느 동네나 역 근처 헬스장을 찾을까요? 예: 헬스장 강남역"
     if intent.day or intent.start or intent.end:
         window = state.setdefault("window", {})
         if intent.day:
@@ -543,7 +550,9 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
         named = next((t for t in sorted(meals, key=len, reverse=True) if t in message), None)
         extra = autopilot.run(state, message, meals, refs, day, emit, limit, find_media, named)
         snap = snapshot(state)
-        result = workflow.answer(message, {**snap["계획"], **extra}, emit)
+        merged = {**snap["계획"], **extra}
+        # 자동 진행 판단에서 모델이 문장까지 썼으면 답변 호출을 생략한다 (모델 호출 3회 → 2회)
+        result = {"답변": extra["메시지"], **merged} if extra.get("메시지") else workflow.answer(message, merged, emit)
     if command == "레시피" and result.get("조회", {}).get("ok"):
         state["external_recipes"] = {str(x["id"]): x for x in result["조회"]["data"] if x.get("id")}
     if command == "쇼핑":
@@ -576,6 +585,9 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
     if command == "헬스장" and arg:
         state["area"] = arg
     state["previous_topic"] = previous
+    if command == "운동":
+        plan = routine(state, state.get("exercise_minutes", 10))
+        result = {"운동 루틴": plan, "안내": "조건을 반영해 오늘 운동 루틴을 바꿨어요." if plan["steps"] else plan["summary"]}
     if command == "주간계획":
         result = {"주간": weekly(state, *kitchen_catalog(state), day)}
     if snap["계획"].get("예시 1인분(g)"):

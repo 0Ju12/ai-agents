@@ -19,6 +19,7 @@ const opts = (values, selected) =>
   values.map((v) => `<option ${v === selected ? "selected" : ""}>${esc(v)}</option>`).join("");
 const navs = [
   ["today", "오늘", "house"],
+  ["agent", "코치", "sparkles"],
   ["pantry", "냉장고", "refrigerator"],
   ["recipes", "레시피", "cooking-pot"],
   ["workout", "운동", "dumbbell"],
@@ -26,6 +27,7 @@ const navs = [
 ];
 const names = {
   today: "오늘의 한끼",
+  agent: "한끼 코치",
   pantry: "나의 냉장고",
   recipes: "레시피 찾기",
   workout: "나의 운동",
@@ -152,12 +154,11 @@ const situations = [
   "토마토 달걀볶음 먹고 싶어",
 ];
 function coach() {
-  // 상황을 말하면 Agent 가 추천 → 메뉴 확정 → 장바구니 → 영상 → 조리 모드 준비까지 이어서 진행
-  return `<section class="card agent-box"><div class="section-head"><h2>${ic("sparkles")} 한끼 Agent</h2></div>
+  // 오늘 화면의 코치 입력: 보내면 코치 화면으로 이동해 대화로 이어진다
+  return `<section class="card agent-box"><div class="section-head"><h2>${ic("sparkles")} 한끼 코치</h2>${btn("대화 열기", "agent", "linkbtn", "chevron-right")}</div>
   <form class="form" data-form="chat"><label class="sr" for="agent-msg">지금 상황</label><textarea id="agent-msg" name="message" required maxlength="1000" placeholder="지금 상황을 말해 주세요. 예: 퇴근했는데 20분밖에 없어, 단백질 위주로"></textarea>
   <div class="chips">${situations.map((x) => btn(x, "situation", "chip", "", x)).join("")}</div>
-  <button class="btn" type="submit">${ic("send")}알아서 진행해줘</button></form>
-  <p class="footnote">추천 후보와 근거를 보여 주고, 메뉴 확정·부족 재료 담기·영상 찾기·조리 모드 준비를 이어서 해요. 한 일은 되돌릴 수 있어요.</p></section>`;
+  <button class="btn" type="submit">${ic("send")}알아서 진행해줘</button></form></section>`;
 }
 function todayView() {
   const p = st["계획"],
@@ -290,13 +291,14 @@ function render() {
   const nav = navs
     .map(
       ([id, n, i]) =>
-        `<a class="navitem" href="#${id}" ${id === k ? 'aria-current="page"' : ""}>${ic(i)}<span>${n}</span></a>`,
+        `<a class="navitem ${id === "agent" ? "nav-agent" : ""}" href="#${id}" ${id === k ? 'aria-current="page"' : ""}>${ic(i)}<span>${n}</span></a>`,
     )
     .join("");
   $("#side-nav").innerHTML = nav;
   $("#mobile-nav").innerHTML = nav;
   $("#main").innerHTML = {
     today: todayView,
+    agent: agentView,
     pantry: pantryView,
     recipes: recipesView,
     workout: workoutView,

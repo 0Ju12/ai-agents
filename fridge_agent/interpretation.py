@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from pydantic import BaseModel, Field, ValidationError
 import gateway
 from domain.catalog import canonical
-from domain.training import GOALS, MOVES
+from domain.training import GOALS, LEVELS, MOVES
 from storage import today
 
 COMMANDS = set(
@@ -22,9 +22,37 @@ class Intent(BaseModel):
     diet: str | None = None
     day: date | None = None
     budget_krw: int | None = Field(default=None, ge=0, le=10000000)
+    level: str | None = None
     area: str | None = Field(default=None, max_length=60)
     end: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     start: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+
+
+BODY_WORDS = {
+    "다리": "하체", "허벅지": "하체", "엉덩이": "하체", "하체": "하체", "스쿼트": "하체",
+    "복근": "코어", "뱃살": "코어", "배": "코어", "코어": "코어", "허리": "코어",
+    "팔뚝": "팔", "이두": "팔", "삼두": "팔", "팔": "팔", "어깨": "어깨", "가슴": "가슴", "등": "등",
+    "상체": "상체", "전신": "전신", "유산소": "전신",
+}
+LEVEL_WORDS = {"초보": "초보", "입문": "초보", "처음": "초보", "중급": "중급", "고급": "숙련", "숙련": "숙련", "헬창": "숙련", "상급": "숙련"}
+
+
+def body_of(text):
+    text = text or ""
+    return next((v for k, v in sorted(BODY_WORDS.items(), key=lambda x: -len(x[0])) if k in text), None)
+
+
+def level_of(text):
+    return next((v for k, v in LEVEL_WORDS.items() if k in (text or "")), None)
+
+
+def workout(text):
+    """'어깨 운동 30분 하고 싶어', '초보 하체 루틴' → 운동 요청. 헬스장 찾기는 제외."""
+    if "헬스장" in text or not any(w in text for w in ("운동", "루틴", "트레이닝", "홈트", "스트레칭", "근력")):
+        return None
+    span = re.search(r"(\d{1,3})\s*분", text)
+    minutes = int(span[1]) if span and 5 <= int(span[1]) <= 120 else None
+    return Intent(action="운동", body=body_of(text), minutes=minutes, level=level_of(text))
 
 
 def parse(text, emit, allow_command=True):
@@ -32,16 +60,25 @@ def parse(text, emit, allow_command=True):
     arg = arg.strip()
     if allow_command and command in COMMANDS:
         return Intent(action=command, argument=arg)
+    rule_workout = workout(text)
+    if rule_workout and (rule_workout.body or rule_workout.minutes or rule_workout.level):
+        return rule_workout  # 부위·시간·숙련도가 분명한 운동 요청은 모델 없이 바로
     if gateway.configured():
         from pydantic import ValidationError
 
         try:
             obj = gateway.decide(
                 "Planner",
-                "한국어 요청을 해석한다. action은 추천, 검색, 메뉴, 레시피, 식품영양, 쇼핑, 영상, 헬스장, 외식, 집밥, 확인 중 하나. 재고에 있다고 명시한 재료만 add, 다 쓴 재료만 remove. 질문과 가정은 변경하지 않는다. 명시한 조건만 반환. 필드: action,argument,add,remove,minutes,goal,body,diet,day,start,end,area,budget_krw. 불명확하면 확인과 짧은 질문.",
+                "한국어 요청을 해석한다. action은 추천, 검색, 메뉴, 레시피, 식품영양, 쇼핑, 영상, 운동, 헬스장, 외식, 집밥, 확인 중 하나. 운동하고 싶다는 요청(부위·시간·숙련도)은 운동이고 minutes 는 운동 시간이다. 헬스장은 특정 지역의 헬스장을 찾을 때만 쓰고 argument 는 지역명이다. 재고에 있다고 명시한 재료만 add, 다 쓴 재료만 remove. 질문과 가정은 변경하지 않는다. 명시한 조건만 반환. 필드: action,argument,add,remove,minutes,goal,body,diet,day,start,end,area,budget_krw,level(초보·중급·숙련). 불명확하면 확인과 짧은 질문.",
                 {"text": text, "today": today().isoformat(), "goals": list(GOALS), "body": list(MOVES)},
             )
             intent = Intent.model_validate(obj)
+            if intent.action == "헬스장" and body_of(intent.argument):  # '어깨'를 지역으로 검색하지 않는다
+                intent.action, intent.body, intent.argument = "운동", body_of(intent.argument), ""
+            if intent.body and intent.body not in MOVES:
+                intent.body = body_of(intent.body)
+            if intent.level and intent.level not in LEVELS:
+                intent.level = level_of(intent.level)
             if intent.action not in {
                 "추천",
                 "검색",
@@ -50,6 +87,7 @@ def parse(text, emit, allow_command=True):
                 "식품영양",
                 "쇼핑",
                 "영상",
+                "운동",
                 "헬스장",
                 "외식",
                 "집밥",
@@ -91,6 +129,8 @@ def parse(text, emit, allow_command=True):
         intent.diet = "식물성"
     if "헬스장" in text:
         return Intent(action="헬스장", argument=text.split("헬스장")[0].strip())
+    if rule_workout:
+        return rule_workout
     if "외식" in text and "?" not in text:
         intent.action = "외식"
     if "집밥" in text:

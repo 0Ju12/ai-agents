@@ -80,12 +80,14 @@ class AutoPlan(BaseModel):
     actions: list[Literal["메뉴확정", "장바구니", "영상", "조리모드"]] = Field(default_factory=list, max_length=4)
     servings: int = Field(default=1, ge=1, le=6, description="사용자가 말한 인원·인분. 말하지 않았으면 1")
     reason: str = Field(default="", max_length=160)
+    message: str = Field(default="", max_length=400, description="사용자에게 보여 줄 2~3문장. top 의 메뉴·근거 값만 쓰고 숫자를 새로 만들지 않는다. 마크다운 금지")
 
 
 PROMPT = (
     "사용자의 상황 문장을 보고 이어서 진행할 작업을 고른다. 메뉴확정(1순위 메뉴로 정하기), 장바구니(부족 재료 담기), "
     "영상(조리 영상·인기 게시물 찾기), 조리모드(단계별 안내 준비) 중에서만 고른다. "
-    "사지 말라고 하면 장바구니를 빼고, 인원이 나오면 servings 로 적는다. 재고·영양 숫자는 쓰지 않는다."
+    "사지 말라고 하면 장바구니를 빼고, 인원이 나오면 servings 로 적는다. 재고·영양 숫자를 새로 만들지 않는다. "
+    "message 에는 top 메뉴를 고른 이유를 top 의 근거로 2~3문장 평문으로 쓴다."
 )
 
 
@@ -102,12 +104,13 @@ def decide(message, top, emit):
     actions = ["메뉴확정", "영상", "조리모드"]
     if top and not any(w in message for w in NO_BUY_WORDS):
         actions.insert(1, "장바구니")
-    servings, how, reason = servings_in(message), "규칙", "상황 문장에서 시간·식단·인원을 반영하고 1순위 메뉴로 진행"
+    servings, how, reason, said = servings_in(message), "규칙", "상황 문장에서 시간·식단·인원을 반영하고 1순위 메뉴로 진행", ""
     if os.getenv("AUTOPILOT_LLM", "1") == "1" and gateway.configured():
         try:
             plan = gateway.structured("자동 진행", PROMPT, {"message": message, "top": top}, AutoPlan)
             actions = [a for a in ACTIONS if a in plan.actions] or actions
             servings, how, reason = plan.servings, "모델(코드 검증)", plan.reason or reason
+            said = re.sub(r"[*#`]+", "", plan.message).strip()
             emit("llm_decision", "자동 진행", method="model", decision=actions, reason=reason[:160])
         except (ValueError, OSError):
             emit("error", "자동 진행", reason="규칙 기본안 사용")
@@ -115,7 +118,7 @@ def decide(message, top, emit):
         actions = []
     if any(w in message for w in NO_BUY_WORDS) and "장바구니" in actions:
         actions.remove("장바구니")
-    return actions, servings, how, reason
+    return actions, servings, how, reason, said
 
 
 def run(state, message, meals, refs, day, emit, limit=None, media=None, named=None):
@@ -126,7 +129,7 @@ def run(state, message, meals, refs, day, emit, limit=None, media=None, named=No
         top3.sort(key=lambda x: x["메뉴"] != named)
     top3 = top3[:3]
     top = top3[0] if top3 else None
-    actions, servings, how, reason = decide(message, top, emit)
+    actions, servings, how, reason, said = decide(message, top, emit)
     done = []
     if "메뉴확정" in actions:
         state["wanted"], state["view_wanted"] = top["메뉴"], True
@@ -154,6 +157,7 @@ def run(state, message, meals, refs, day, emit, limit=None, media=None, named=No
         "인분": servings,
         "판단 방법": how,
         "판단 이유": reason,
+        "메시지": said,
         "영상": found,
         "조리 모드": {"title": top["메뉴"], "servings": servings} if top and "조리모드" in actions else None,
     }

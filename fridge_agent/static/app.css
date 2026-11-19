@@ -937,7 +937,7 @@ dialog::backdrop {
   }
   #mobile-nav {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     position: fixed;
     bottom: 0;
     left: 0;
@@ -1151,3 +1151,114 @@ dialog::backdrop {
 #reminder-banner p { margin: 2px 0 0; opacity: 0.9; }
 #reminder-banner .btn { background: var(--lime); color: var(--ink); }
 #reminder-banner .linkbtn { color: #fff; }
+
+/* ── SVG 조리 장면 ───────────────────────── */
+.ks { display: block; width: 100%; height: auto; border-radius: 18px; background: #f4f6ea; }
+.ks * { transform-box: fill-box; transform-origin: center; }
+.ks-flame { transform-origin: 50% 100%; animation: ks-flicker 0.5s ease-in-out infinite alternate; animation-delay: var(--d); }
+.ks-steam path { opacity: 0; animation: ks-steam 2.6s ease-out infinite; animation-delay: var(--d); }
+.ks-bubble { animation: ks-bubble 1.6s ease-in infinite; animation-delay: var(--d); }
+.ks-bob { animation: ks-bob 2.2s ease-in-out infinite; animation-delay: calc(var(--i) * 0.3s); }
+.ks-lid { animation: ks-lid 1.8s ease-in-out infinite; }
+.ks-pan { transform-origin: 70% 60%; animation: ks-toss 1.1s ease-in-out infinite; }
+.ks-grill .ks-pan { animation-duration: 2.4s; }
+.ks-hop { animation: ks-hop 1.1s ease-in-out infinite; animation-delay: calc(var(--i) * 0.12s); }
+.ks-sizzle circle { opacity: 0; animation: ks-spark 0.9s ease-out infinite; animation-delay: var(--d); }
+.ks-orbit { transform-origin: 200px 190px; transform-box: view-box; animation: ks-orbit 2.4s linear infinite; }
+.ks-whisk { transform-origin: 205px 110px; transform-box: view-box; animation: ks-whisk 1.2s ease-in-out infinite; }
+.ks-knife { transform-origin: 280px 112px; transform-box: view-box; animation: ks-chop 0.7s ease-in-out infinite; }
+.ks-whole { animation: ks-squash 0.7s ease-in-out infinite; }
+.ks-piece { opacity: 0; animation: ks-slide 2.1s ease-out infinite; animation-delay: calc(var(--i) * 0.7s); }
+.ks-fall { animation: ks-fall 2.4s cubic-bezier(0.5, 0, 0.75, 0) infinite; animation-delay: calc(var(--i) * 0.45s); }
+.ks-ripple ellipse { opacity: 0; animation: ks-ripple 1.8s ease-out infinite; animation-delay: var(--d); }
+.ks-dish { animation: ks-pop 2.4s ease-in-out infinite; }
+.ks-twinkle { animation: ks-bob 2.6s ease-in-out infinite; animation-delay: calc(var(--i) * 0.4s); }
+.ks-spark { animation: ks-twinkle 1.5s ease-in-out infinite; animation-delay: var(--d); }
+@keyframes ks-flicker { from { transform: scaleY(0.82) scaleX(1.05); } to { transform: scaleY(1.12) scaleX(0.92); } }
+@keyframes ks-steam { 0% { transform: translateY(10px); opacity: 0; } 30% { opacity: 0.85; } 100% { transform: translateY(-50px); opacity: 0; } }
+@keyframes ks-bubble { 0% { transform: translateY(0) scale(0.6); opacity: 0.9; } 100% { transform: translateY(-58px) scale(1.1); opacity: 0; } }
+@keyframes ks-bob { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(6px) rotate(4deg); } }
+@keyframes ks-lid { 0%, 70%, 100% { transform: translateY(0) rotate(0); } 80% { transform: translateY(-6px) rotate(-3deg); } 90% { transform: translateY(-2px) rotate(2deg); } }
+@keyframes ks-toss { 0%, 100% { transform: rotate(0); } 40% { transform: rotate(-7deg) translateY(-6px); } 60% { transform: rotate(3deg); } }
+@keyframes ks-hop { 0%, 100% { transform: translateY(0) rotate(0); } 45% { transform: translateY(-42px) rotate(160deg); } }
+@keyframes ks-spark { 0% { transform: translate(0, 0); opacity: 1; } 100% { transform: translate(var(--dx), -46px); opacity: 0; } }
+@keyframes ks-orbit { to { transform: rotate(360deg); } }
+@keyframes ks-whisk { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
+@keyframes ks-chop { 0%, 100% { transform: rotate(-16deg) translateY(-14px); } 50% { transform: rotate(4deg) translateY(36px); } }
+@keyframes ks-squash { 0%, 40%, 100% { transform: scale(1); } 55% { transform: scale(1.08, 0.9); } }
+@keyframes ks-slide { 0% { opacity: 0; transform: translateX(-30px); } 25% { opacity: 1; } 100% { opacity: 1; transform: translateX(0); } }
+@keyframes ks-fall { 0% { transform: translateY(-40px); opacity: 0; } 15% { opacity: 1; } 70% { transform: translateY(118px) rotate(30deg); opacity: 1; } 100% { transform: translateY(126px) scale(0.6); opacity: 0; } }
+@keyframes ks-ripple { 0% { transform: scale(0.4); opacity: 0.9; } 100% { transform: scale(3.2); opacity: 0; } }
+@keyframes ks-pop { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06) translateY(-4px); } }
+@keyframes ks-twinkle { 0%, 100% { transform: scale(0.4); opacity: 0.2; } 50% { transform: scale(1.1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ks * { animation: none !important; } }
+
+/* 조리 모드 레이아웃 · 전체 화면 · 단계 전환 */
+.cook-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cook-head .eyeline { margin: 0; }
+.cook-body { animation: cook-in 0.35s ease-out; }
+@keyframes cook-in { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+.cook-heat { display: inline-flex; gap: 4px; align-items: center; font-weight: 700; color: #b4501b; }
+.cook-ring { --p: 0; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--green) calc(var(--p) * 1%), var(--line) 0); }
+.cook-ring b { width: 52px; height: 52px; border-radius: 50%; background: #fafbf3; display: grid; place-items: center; font-size: 13px; font-variant-numeric: tabular-nums; }
+.cook-timer { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: #fff; border: 1px solid var(--line); }
+.cook-timer b#cook-clock { font-size: 1.8rem; }
+dialog.cook-full { width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; margin: 0; padding: 18px clamp(16px, 4vw, 40px); }
+dialog.cook-full .cook { max-width: 760px; margin: 0 auto; }
+dialog.cook-full .cook-text { font-size: 1.35rem; }
+.step-dots { display: flex; gap: 5px; flex-wrap: wrap; }
+.step-dots button { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line); background: #fff; font-size: 12px; font-weight: 700; color: var(--muted); cursor: pointer; }
+.step-dots button.on { background: var(--green); color: #fff; border-color: var(--green); }
+.step-dots button.done { background: var(--lime); color: var(--ink); }
+
+/* ── 한끼 코치 대화 화면 ───────────────────── */
+.chat { max-width: 820px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; min-height: calc(100dvh - 200px); }
+.chat-head { display: flex; align-items: flex-end; justify-content: space-between; }
+.chat-head h1 { margin: 0; }
+.chat-log { flex: 1; display: flex; flex-direction: column; gap: 14px; padding-bottom: 8px; }
+.bubble { display: flex; gap: 10px; align-items: flex-start; animation: bubble-in 0.25s ease-out; }
+@keyframes bubble-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.bubble .avatar { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--green); color: var(--lime); }
+.bubble-body { position: relative; max-width: min(640px, 100%); background: #fff; border: 1px solid var(--line); border-radius: 4px 18px 18px 18px; padding: 12px 14px 8px; display: grid; gap: 8px; box-shadow: 0 2px 10px #1d3b2c0d; }
+.bubble-body p { margin: 0; }
+.bubble-body time { justify-self: end; font-size: 11px; color: var(--muted); }
+.bubble.user { justify-content: flex-end; }
+.bubble.user .bubble-body { background: var(--green); color: #fff; border-color: var(--green); border-radius: 18px 4px 18px 18px; }
+.bubble.user time { color: #cfe0d4; }
+.bubble .lead { font-weight: 800; font-size: 1.05rem; }
+.bubble .answer { background: #f0f6e6; border-radius: 12px; padding: 10px 12px; }
+.bubble .sec { font-weight: 800; font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
+.bubble .cta { display: flex; flex-wrap: wrap; gap: 8px; }
+.bubble .media { display: grid; gap: 8px; }
+.fridge-mini { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.done-list li.undone { opacity: 0.55; }
+.done-list li.undone strong { text-decoration: line-through; }
+.typing .dots { display: flex; gap: 4px; }
+.typing .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: dot 1s infinite ease-in-out; }
+.typing .dots i:nth-child(2) { animation-delay: 0.15s; } .typing .dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes dot { 0%, 100% { opacity: 0.25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+.progress-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 13px; color: var(--muted); }
+.progress-steps li::before { content: "○ "; }
+.progress-steps li.on { color: var(--ink); font-weight: 700; }
+.progress-steps li.on::before { content: "● "; color: var(--green); }
+.progress-steps li.done::before { content: "✓ "; color: var(--green); }
+.workout-card { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; display: grid; gap: 6px; }
+.wk-head { display: flex; gap: 10px; align-items: center; }
+.wk-head > div { display: grid; }
+.composer { position: sticky; bottom: 0; background: linear-gradient(transparent, var(--paper) 18%); padding-top: 18px; display: grid; gap: 8px; }
+.composer .chips { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; margin: 0; -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
+.composer .chips .chip { white-space: nowrap; flex: none; }
+.composer-row { display: flex; gap: 8px; align-items: flex-end; background: #fff; border: 1px solid var(--line); border-radius: 22px; padding: 6px 6px 6px 14px; box-shadow: 0 6px 24px #1d3b2c14; }
+.composer-row:focus-within { border-color: var(--green); }
+.composer textarea { flex: 1; border: 0; outline: none; resize: none; background: transparent; min-height: 40px; max-height: 140px; padding: 9px 0; line-height: 1.45; }
+.composer .send { flex: none; width: 42px; height: 42px; border-radius: 50%; border: 0; background: var(--green); color: #fff; display: grid; place-items: center; cursor: pointer; }
+.composer .send:disabled { opacity: 0.4; cursor: wait; }
+.composer .footnote { text-align: center; margin: 0; }
+.link-add summary { font-size: 13px; color: var(--muted); cursor: pointer; }
+.link-add .inline-link { margin-top: 8px; }
+@media (max-width: 760px) {
+  .composer { bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .chat { min-height: calc(100dvh - 210px); }
+  .navitem.nav-agent .ic { background: var(--green); color: var(--lime); border-radius: 50%; padding: 4px; width: 28px; height: 28px; }
+  .navitem.nav-agent[aria-current="page"] .ic { background: var(--lime); color: var(--green); }
+}
