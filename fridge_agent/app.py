@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 load_dotenv(HERE / ".env", override=False)
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
 from backend.api.deps import get_store
@@ -51,7 +51,9 @@ from storage import (
 from workflow import execute
 import cook_guide
 import food_tools
+import media
 import photos
+import video_guide
 
 app = FastAPI(title="한끼 · 냉장고 생활 코치", version="1.0.0")
 app.dependency_overrides[get_store] = local_store
@@ -88,7 +90,7 @@ async def scope_request(request, call_next):
             )
         res.headers["Referrer-Policy"] = "no-referrer"
         res.headers["X-Content-Type-Options"] = "nosniff"
-        if request.url.path.startswith("/api/"):
+        if request.url.path.startswith("/api/") and not request.url.path.startswith("/api/media"):
             res.headers["Cache-Control"] = "no-store"
         return res
     finally:
@@ -578,6 +580,7 @@ def guide(body: GuideRequest):
                 source="식품안전나라 COOKRCP01 #" + str(row["id"]), emit=emit,
             )
             result["대표 사진"] = row.get("대표 사진")
+            media.decorate(result, "kr:" + body.recipe_id)
         else:
             meal = kitchen_catalog(state)[0].get(body.title or "")
             if not meal:
@@ -586,10 +589,54 @@ def guide(body: GuideRequest):
                 meal["title"], meal["steps"], grams=meal["grams"], servings=body.servings,
                 stock=stock, source=meal.get("source", ""), emit=emit,
             )
+            media.decorate(result, "meal:" + meal["title"])
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     emit("node_end", "조리 가이드")
     return {**result, "추적": steps}
+
+
+class MediaRequest(BaseModel):
+    session_id: str = Field(default="default", min_length=1, max_length=80)
+    menu: str = Field(min_length=1, max_length=80)
+    steps: list[str] = Field(default_factory=list, max_length=40)
+
+
+@app.post("/api/guide/media")
+def guide_media(body: MediaRequest):
+    """조리 모드 영상 탭: YouTube 영상(단계별 시작 초)과 Instagram 게시물."""
+    emit, steps = tracer(body.session_id)
+    emit("node_start", "조리 영상")
+    result = video_guide.media_for(body.menu.strip(), [s[:300] for s in body.steps], emit)
+    emit("node_end", "조리 영상")
+    return {**result, "추적": steps}
+
+
+@app.get("/api/media")
+def media_photo(u: str):
+    try:
+        path, mime = media.cached(u)
+    except (ValueError, OSError) as exc:
+        raise HTTPException(404, "사진을 불러오지 못했어요.") from exc
+    return FileResponse(path, media_type=mime, headers={"Cache-Control": "public, max-age=604800"})
+
+
+@app.get("/api/media/depth")
+def media_depth(u: str):
+    path = media.depth_path(u) if media.allowed(u) else None
+    if not path:
+        raise HTTPException(404, "깊이 맵이 없습니다.")
+    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "public, max-age=604800"})
+
+
+@app.get("/api/media/clip/{recipe_key}/{step}")
+def media_clip(recipe_key: str, step: int):
+    if not re.fullmatch(r"[0-9a-f]{32}", recipe_key) or not 1 <= step <= 40:
+        raise HTTPException(404, "클립이 없습니다.")
+    path = media.clip_by_key(recipe_key, step)
+    if not path:
+        raise HTTPException(404, "검수 승인된 클립이 없습니다.")
+    return FileResponse(path, media_type="video/mp4")
 
 
 class PhotoRequest(BaseModel):

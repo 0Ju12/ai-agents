@@ -27,14 +27,90 @@ function stopClock() {
   clearInterval(clock);
   clock = 0;
 }
+let tab = "anim",
+  mediaInfo = null,
+  videoAt = 0,
+  igLoaded = false;
+function fxLayer(card) {
+  // 동작별 효과: 김·기포(끓이기·찌기·데치기), 기름 튐(볶기·굽기), 재료 떨어짐(넣기), 휘젓기(섞기), 칼질(썰기)
+  const anim = card["애니메이션"],
+    items = card["재료"].length ? card["재료"] : [{ 아이콘: guide["대표 아이콘"] }];
+  const steam = `<div class="fx-steam"><i></i><i></i><i></i><i></i></div>`;
+  const sparks = `<div class="fx-sparks">${"<i></i>".repeat(8)}</div>`;
+  const drops = `<div class="fx-drop">${items.map((x, i) => `<span style="--i:${i}">${esc(x["아이콘"])}</span>`).join("")}</div>`;
+  return (
+    {
+      boil: steam,
+      steam: steam,
+      blanch: steam + drops,
+      stir: sparks + `<div class="fx-toss">${items.map((x, i) => `<span style="--i:${i}">${esc(x["아이콘"])}</span>`).join("")}</div>`,
+      grill: sparks,
+      drop: drops,
+      mix: `<div class="fx-swirl"></div>`,
+      chop: `<div class="fx-knife">🔪</div>`,
+    }[anim] || ""
+  );
+}
 function stage(card) {
-  // 단계 사진이 있으면 사진, 없으면 재료 아이콘이 그릇으로 들어가는 애니메이션
+  // 우선순위: 검수 승인된 AI 클립 → 단계 사진 + 움직임(깊이 맵이 있으면 2.5D) → 재료 아이콘 애니메이션
+  if (card["클립"])
+    return `<figure class="cook-photo"><video src="${esc(card["클립"])}" autoplay muted loop playsinline aria-label="${esc(card["순서"] + "단계 조리 장면")}"></video><figcaption>AI 생성 조리 장면 · 검수 완료 · 실제와 다를 수 있어요</figcaption></figure>`;
   if (card["사진"])
-    return `<figure class="cook-photo"><img src="${esc(card["사진"])}" alt="${esc(card["순서"] + "단계 조리 사진")}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('figure').classList.add('broken')"><figcaption>식품안전나라 조리 과정 사진</figcaption></figure>`;
+    return `<figure class="cook-photo cook-scene anim-${esc(card["애니메이션"])}"><img class="kb" src="${esc(card["사진"])}" alt="${esc(card["순서"] + "단계 조리 사진")}" onerror="this.closest('figure').classList.add('broken')">${card["깊이"] ? `<canvas class="depth3d" data-img="${esc(card["사진"])}" data-depth="${esc(card["깊이"])}" aria-hidden="true"></canvas>` : ""}<div class="scene-fx" aria-hidden="true">${fxLayer(card)}</div><figcaption>식품안전나라 조리 과정 사진${card["깊이"] ? " · 입체 움직임" : ""}</figcaption></figure>`;
   const items = card["재료"].length ? card["재료"] : [{ 아이콘: guide["대표 아이콘"], 이름: "" }];
   return `<div class="cook-stage anim-${esc(card["애니메이션"])}" role="img" aria-label="${esc(card["동작"] + " " + card["재료"].map((x) => x["이름"]).join(", "))}">
     <div class="cook-items">${items.map((x, i) => `<span style="--i:${i}">${esc(x["아이콘"])}</span>`).join("")}</div>
     <div class="cook-vessel">${vessel[card["애니메이션"]] || "🍲"}</div><div class="cook-fx" aria-hidden="true"><i></i><i></i><i></i></div></div>`;
+}
+function tabs() {
+  return `<div class="cook-tabs" role="tablist">${[
+    ["anim", "애니메이션"],
+    ["video", "영상"],
+    ["social", "인기 레시피"],
+  ]
+    .map(([k, n]) => `<button type="button" role="tab" aria-selected="${tab === k}" class="chip ${tab === k ? "on" : ""}" data-do="cookTab" data-arg="${k}">${n}</button>`)
+    .join("")}</div>`;
+}
+function providerNote(r, label) {
+  return `<p class="hint">${esc(errors[r?.error] || label + " 자료를 확인하지 못했어요.")}${r?.setting ? " · " + esc(r.setting) : ""}</p>`;
+}
+function videoPane() {
+  if (!mediaInfo) return '<p class="hint" role="status">영상을 찾고 있어요…</p>';
+  const yt = mediaInfo.youtube;
+  if (!yt.ok) return providerNote(yt, "YouTube") + a("YouTube에서 직접 찾기", mediaInfo["직접 검색"].YouTube);
+  const v = yt.data[videoAt],
+    start = v.step_starts[stepAt];
+  return `<div class="video-wrap"><iframe src="https://www.youtube.com/embed/${esc(v.id)}?start=${start || 0}&rel=0&playsinline=1" title="${esc(v.title)}" allow="encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy"></iframe></div>
+  <p class="hint">${start != null ? `이 단계 장면(${mmss(start)})부터 재생해요 · ${esc(v.matching)}` : v.chapters.length ? "이 단계와 맞는 챕터가 없어 처음부터 재생해요." : "챕터가 없는 영상이라 처음부터 재생해요."} · ${esc(v.channel)}</p>
+  ${v.chapters.length ? `<details><summary>챕터 ${v.chapters.length}개</summary><div class="btnbar">${v.chapters.map((c) => btn(mmss(c.start) + " " + c.title, "cookSeek", "chip", "", c.start)).join("")}</div></details>` : ""}
+  <div class="btnbar">${yt.data.map((x, i) => btn((i === videoAt ? "▶ " : "") + x.title.slice(0, 26), "cookVideo", "chip", "", i)).join("")}</div><p class="footnote">${esc(yt.source)}</p>`;
+}
+function socialPane() {
+  if (!mediaInfo) return '<p class="hint" role="status">게시물을 찾고 있어요…</p>';
+  const ig = mediaInfo.instagram;
+  if (!ig.ok || !ig.data.length)
+    return providerNote(ig, "Instagram") + `<p>${a("Instagram 해시태그에서 보기", mediaInfo["직접 검색"].Instagram)}</p><p class="footnote">해시태그 자동 조회는 Instagram 비즈니스 계정 연결과 Meta 앱 검수가 필요해요.</p>`;
+  return (
+    ig.data
+      .slice(0, 3)
+      .map((x) => `<blockquote class="instagram-media" data-instgrm-permalink="${esc(x.url)}" data-instgrm-version="14"><a href="${esc(x.url)}" rel="noopener noreferrer">${esc(x.title)}</a></blockquote>`)
+      .join("") + `<p class="footnote">${esc(ig.source)}</p>`
+  );
+}
+function loadInstagram() {
+  if (window.instgrm) return window.instgrm.Embeds.process();
+  if (igLoaded) return;
+  igLoaded = true;
+  const sc = document.createElement("script");
+  sc.src = "https://www.instagram.com/embed.js";
+  sc.async = true;
+  document.body.appendChild(sc);
+}
+async function ensureMedia() {
+  if (mediaInfo) return;
+  const r = await api("/api/guide/media", "POST", { menu: guide["메뉴"], steps: guide["단계"].map((c) => c["설명"]) });
+  mediaInfo = r;
+  if (dialog.open && guide) paint();
 }
 function cookCard() {
   const card = guide["단계"][stepAt],
@@ -43,7 +119,8 @@ function cookCard() {
   return `<div class="cook">
   <div class="cook-progress" aria-label="${stepAt + 1}/${total}단계"><i style="width:${((stepAt + 1) / total) * 100}%"></i></div>
   <p class="eyeline">${stepAt + 1} / ${total}단계 · ${esc(card["동작"])}${card["불 세기"] ? " · " + esc(card["불 세기"]) : ""}</p>
-  ${stage(card)}
+  ${tabs()}
+  ${tab === "anim" ? stage(card) : tab === "video" ? videoPane() : socialPane()}
   <p class="cook-text">${esc(card["설명"])}</p>
   ${card["팁"] ? `<p class="hint">${esc(card["팁"])}</p>` : ""}
   ${card["재료"].length ? `<div class="btnbar">${card["재료"].map((x) => `<span class="pill ${x["보유"] ? "" : "warn"}">${esc(x["아이콘"] + " " + x["이름"])}${x["분량(g)"] != null ? " " + fmt(x["분량(g)"]) + "g" : ""}${x["보유"] ? "" : " · 미보유"}</span>`).join("")}</div>` : ""}
@@ -51,12 +128,60 @@ function cookCard() {
   <div class="cook-nav">${btn("이전", "cookPrev", "btn alt", "chevron-left")}${btn("읽어주기", "cookSpeak", "btn alt", "volume-2")}${last ? btn("조리 완료 기록", "cookDone", "btn", "check") : btn("다음", "cookNext", "btn", "chevron-right")}</div>
   <details><summary>전체 재료 (${guide["인분"]}인분)</summary><p>${guide["재료 합계"].map((x) => esc(x["아이콘"] + " " + x["이름"]) + (x["분량(g)"] != null ? " " + fmt(x["분량(g)"]) + "g" : "")).join(" · ")}</p><p class="hint">${esc(guide["안내"])} · ${esc(guide["출처"])} · ${esc(guide["판단 방법"])}</p></details></div>`;
 }
+function paint() {
+  $("#sheet-body").innerHTML = cookCard();
+  document.querySelectorAll("#sheet-body canvas.depth3d").forEach(depth3d);
+  if (tab === "social" && mediaInfo?.instagram?.ok) loadInstagram();
+}
 function showStep(i) {
   stopClock();
   stopVoice();
   stepAt = Math.max(0, Math.min(i, guide["단계"].length - 1));
   remain = guide["단계"][stepAt]["타이머(초)"] || 0;
-  $("#sheet-body").innerHTML = cookCard();
+  paint();
+}
+function depth3d(canvas) {
+  // 2.5D: 깊이 맵만큼 사진의 각 점을 다르게 밀어, 카메라가 천천히 움직이는 것처럼 보이게 한다 (WebGL)
+  const gl = canvas.getContext("webgl", { premultipliedAlpha: false });
+  if (!gl || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const load = (src) => new Promise((ok, no) => Object.assign(new Image(), { onload() { ok(this); }, onerror: no, src }));
+  Promise.all([load(canvas.dataset.img), load(canvas.dataset.depth)]).then(([img, dep]) => {
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    const sh = (type, src) => { const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x); return x; };
+    const prog = gl.createProgram();
+    gl.attachShader(prog, sh(gl.VERTEX_SHADER, "attribute vec2 p;varying vec2 uv;void main(){uv=vec2(p.x*.5+.5,.5-p.y*.5);gl_Position=vec4(p,0,1);}"));
+    gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, "precision mediump float;uniform sampler2D img,dep;uniform vec2 off;varying vec2 uv;void main(){float d=texture2D(dep,uv).r;vec2 q=uv+off*(d-.5);q=.5+(q-.5)*.94;gl_FragColor=texture2D(img,q);}"));
+    gl.linkProgram(prog);
+    gl.useProgram(prog);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, "p");
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    [img, dep].forEach((im, i) => {
+      gl.activeTexture(gl.TEXTURE0 + i);
+      gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
+      gl.uniform1i(gl.getUniformLocation(prog, i ? "dep" : "img"), i);
+    });
+    const off = gl.getUniformLocation(prog, "off");
+    let tilt = [0, 0];
+    addEventListener("deviceorientation", (e) => (tilt = [(e.gamma || 0) / 900, (e.beta - 45 || 0) / 900]), { passive: true });
+    canvas.closest("figure").classList.add("has-depth");
+    const t0 = performance.now();
+    (function frame(t) {
+      if (!canvas.isConnected) return;
+      const k = (t - t0) / 1000;
+      gl.uniform2f(off, 0.03 * Math.sin(k * 0.6) + tilt[0], 0.015 * Math.cos(k * 0.45) + tilt[1]);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      requestAnimationFrame(frame);
+    })(t0);
+  }).catch(() => {});
 }
 async function openGuide(req) {
   const servings = Number(prompt("몇 인분을 만들까요? (1~20)", "1") || 0);
@@ -67,6 +192,9 @@ async function openGuide(req) {
   } finally {
     document.querySelectorAll("#main [data-progress]").forEach((el) => el.remove());
   }
+  mediaInfo = null;
+  videoAt = 0;
+  tab = "anim";
   sheet(guide["메뉴"] + " · 조리 모드", "");
   showStep(0);
 }
@@ -127,6 +255,19 @@ async function scanBarcode(input) {
 Object.assign(action, {
   cookMode: (title) => openGuide({ title }),
   cookModeExt: (id) => openGuide({ recipe_id: id }),
+  cookTab: async (k) => {
+    tab = k;
+    paint();
+    if (k !== "anim") await ensureMedia();
+  },
+  cookVideo: (i) => {
+    videoAt = Number(i);
+    paint();
+  },
+  cookSeek: (sec) => {
+    const f = $("#sheet-body .video-wrap iframe");
+    if (f) f.src = f.src.replace(/start=\d+/, "start=" + Number(sec)) + (f.src.includes("autoplay") ? "" : "&autoplay=1");
+  },
   cookNext: () => showStep(stepAt + 1),
   cookPrev: () => showStep(stepAt - 1),
   cookSpeak: () => {
@@ -136,7 +277,7 @@ Object.assign(action, {
   cookTimer: () => {
     if (clock) {
       stopClock();
-      $("#sheet-body").innerHTML = cookCard();
+      paint();
       return;
     }
     clock = setInterval(() => {
@@ -147,10 +288,10 @@ Object.assign(action, {
         stopClock();
         navigator.vibrate?.([300, 120, 300]);
         speak("타이머가 끝났어요. 다음 단계를 확인하세요.");
-        if (el) $("#sheet-body").innerHTML = cookCard();
+        if (el) paint();
       }
     }, 1000);
-    $("#sheet-body").innerHTML = cookCard();
+    paint();
   },
   cookDone: () => {
     stopClock();

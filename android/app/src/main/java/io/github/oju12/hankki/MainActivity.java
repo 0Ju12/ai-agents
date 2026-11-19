@@ -74,6 +74,14 @@ public class MainActivity extends Activity {
         return trusted.getScheme().equals(uri.getScheme()) && trusted.getEncodedAuthority().equals(uri.getEncodedAuthority());
     }
 
+    private static boolean embedHost(Uri uri) {
+        String h = uri.getHost();
+        if (h == null || !"https".equals(uri.getScheme())) return false;
+        for (String allowed : new String[]{"youtube.com", "youtube-nocookie.com", "instagram.com", "cdninstagram.com"})
+            if (h.equals(allowed) || h.endsWith("." + allowed)) return true;
+        return false;
+    }
+
     private void openHome() {
         web=new WebView(this);
         web.getSettings().setJavaScriptEnabled(true);
@@ -86,7 +94,9 @@ public class MainActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
                 Uri target=req.getUrl();
                 if (sameOrigin(target)) return false;
-                if (!req.isForMainFrame() || !req.hasGesture()) return true;
+                // 조리 모드의 YouTube·Instagram 공식 임베드(iframe)만 허용한다.
+                if (!req.isForMainFrame()) return !embedHost(target);
+                if (!req.hasGesture()) return true;
                 if ("hankki".equals(target.getScheme()) && sameOrigin(Uri.parse(view.getUrl()))) {
                     if ("health".equals(target.getHost())) startHealth();
                     if ("settings".equals(target.getHost())) setup();

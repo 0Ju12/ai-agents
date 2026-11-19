@@ -1093,3 +1093,37 @@ dialog::backdrop {
 .cook-nav { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 8px; }
 .list-line .check { display: flex; align-items: center; gap: 6px; flex: 1; }
 .list-line .grams { width: 90px; }
+
+/* ── 조리 모드: 탭 · 사진 움직임 · 영상 ─────────── */
+.cook-tabs { display: flex; gap: 6px; }
+.cook-tabs .chip.on { background: var(--green); color: #fff; border-color: var(--green); }
+.cook-scene { position: relative; aspect-ratio: 4 / 3; max-height: 340px; }
+.cook-scene img.kb { position: absolute; inset: 0; width: 100%; height: 100%; max-height: none; object-fit: cover; animation: kenburns 9s ease-in-out infinite alternate; transform-origin: 55% 60%; }
+.cook-scene canvas.depth3d { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.6s; }
+.cook-scene.has-depth canvas.depth3d { opacity: 1; }
+.cook-scene.has-depth img.kb { animation: none; }
+.cook-scene figcaption { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(transparent, rgba(0, 0, 0, 0.55)); color: #fff; }
+.anim-stir img.kb, .anim-grill img.kb { animation: kenburns 9s ease-in-out infinite alternate, shake 0.5s ease-in-out infinite; }
+.scene-fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.fx-steam { position: absolute; left: 30%; right: 30%; bottom: 35%; height: 60%; }
+.fx-steam i { position: absolute; bottom: 0; width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0)); filter: blur(6px); animation: steam 3.2s infinite ease-out; }
+.fx-steam i:nth-child(1) { left: 0; } .fx-steam i:nth-child(2) { left: 30%; animation-delay: 0.8s; } .fx-steam i:nth-child(3) { left: 55%; animation-delay: 1.6s; } .fx-steam i:nth-child(4) { left: 80%; animation-delay: 2.4s; }
+.fx-sparks i { position: absolute; left: calc(30% + var(--x, 0%)); top: 55%; width: 5px; height: 5px; border-radius: 50%; background: #ffd36b; box-shadow: 0 0 6px #ffb02e; animation: spark 0.9s infinite ease-out; }
+.fx-sparks i:nth-child(odd) { --x: 25%; animation-delay: 0.2s; } .fx-sparks i:nth-child(3n) { --x: 40%; animation-delay: 0.45s; } .fx-sparks i:nth-child(4n) { --x: 10%; animation-delay: 0.65s; }
+.fx-drop, .fx-toss { position: absolute; inset: 0; display: flex; justify-content: center; gap: 12px; font-size: 38px; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35)); }
+.fx-drop span { animation: dropin 2.6s infinite cubic-bezier(0.5, 0, 0.75, 0); animation-delay: calc(var(--i) * 0.4s); }
+.fx-toss span { align-self: center; animation: hop 0.9s infinite ease-in-out; animation-delay: calc(var(--i) * 0.15s); }
+.fx-swirl { position: absolute; left: 50%; top: 55%; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 4px dashed rgba(255, 255, 255, 0.85); border-left-color: transparent; animation: spin 1.6s linear infinite; }
+.fx-knife { position: absolute; right: 18%; top: 30%; font-size: 56px; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4)); animation: knife 0.55s ease-in-out infinite; }
+@keyframes kenburns { from { transform: scale(1.04) translate(0, 0); } to { transform: scale(1.16) translate(-2%, -2%); } }
+@keyframes shake { 0%, 100% { translate: 0 0; } 50% { translate: 2px -1px; } }
+@keyframes steam { 0% { transform: translateY(0) scale(0.6); opacity: 0; } 25% { opacity: 0.9; } 100% { transform: translateY(-160px) scale(1.6); opacity: 0; } }
+@keyframes spark { 0% { transform: translate(0, 0); opacity: 1; } 100% { transform: translate(var(--dx, 18px), -60px); opacity: 0; } }
+@keyframes dropin { 0% { transform: translateY(-50px); opacity: 0; } 20% { opacity: 1; } 75% { transform: translateY(140px) scale(0.8); opacity: 1; } 100% { transform: translateY(150px) scale(0.5); opacity: 0; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes knife { 0%, 100% { transform: translateY(-14px) rotate(-25deg); } 50% { transform: translateY(14px) rotate(0); } }
+@media (prefers-reduced-motion: reduce) { .cook-scene *, .scene-fx * { animation: none !important; } }
+.video-wrap { position: relative; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #000; }
+.video-wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.instagram-media { min-width: 0 !important; width: 100% !important; margin: 0 0 12px !important; }
+.cook-photo video { display: block; width: 100%; max-height: 340px; object-fit: cover; }

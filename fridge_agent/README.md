@@ -69,5 +69,25 @@ Planner가 필요한 작업을 만들고 Worker가 도구를 순서대로 실행
 | 냉장고 사진 | 사진 → 재료 후보 → 선택한 재료만 `입고` | 중량·기한은 사용자가 입력합니다. |
 | 바코드 | 브라우저 BarcodeDetector로 인식하거나 숫자 입력 → Open Food Facts 제품명으로 등록 양식 채우기 | 지원하지 않는 기기는 숫자를 직접 입력합니다. |
 
-API: `POST /api/guide`(조리 단계), `POST /api/photo`(사진 후보), `GET /api/barcode/{code}`. 사진은 저장하지 않습니다. Android는 시스템 사진 선택기(`onShowFileChooser`)와 TTS(`HankkiVoice`)로 연결했습니다.
+### 조리 모드의 세 가지 화면
+
+| 탭 | 보여 주는 것 | 비고 |
+| --- | --- | --- |
+| 애니메이션 | ① 검수 승인된 AI 조리 클립 → ② 단계 사진 + 움직임(천천히 확대·이동, 동작별 김·기름 튐·재료 떨어짐·휘젓기·칼질 효과, 깊이 맵이 있으면 WebGL 2.5D) → ③ 사진이 없으면 재료 아이콘 애니메이션 | 사진은 서버가 식품안전나라에서만 받아 캐시(`/api/media`)하고 같은 출처로 내려보냅니다. |
+| 영상 | YouTube 임베드. 설명란 챕터를 조리 단계와 맞춰 **지금 단계 장면부터** 재생 | 검색 1회(100단위) + 상세 1회(1단위), 메뉴별 24시간 캐시. 단계-챕터 짝은 규칙 우선, 모델 보충은 시간 순서가 맞을 때만 받습니다. `YOUTUBE_API_KEY` 필요 |
+| 인기 레시피 | Instagram 공식 임베드(`embed.js`)로 최근 게시물·릴스 | 해시태그 조회는 비즈니스 계정·Meta 앱 검수(`IG_USER_ID`, `IG_ACCESS_TOKEN`)가 필요합니다. 없으면 해시태그 링크로 대체 |
+
+미리 만드는 미디어(서버 실행과 별개, 선택):
+
+```bash
+pip install transformers torch pillow && python -m media_tools.make_depth
+```
+깊이 맵(Depth Anything V2 Small, Apache-2.0)을 만들어 2.5D 움직임을 켭니다.
+
+```bash
+python -m media_tools.make_clips make --recipe "kr:77" --step 2 --photo-url "<단계 사진 주소>" --action 볶기
+```
+사진으로 AI 조리 클립을 만듭니다(`CLIP_PROVIDER=http|command`, GPU 오픈소스 모델이나 외부 API). 클립은 **검수 대기**로 저장되고, `make_clips approve`로 승인한 것만 앱에 보입니다. 공개 전에 사진의 이용 조건을 확인하세요.
+
+API: `POST /api/guide`(조리 단계), `POST /api/guide/media`(YouTube·Instagram), `GET /api/media`(사진 중계), `POST /api/photo`(사진 후보), `GET /api/barcode/{code}`. 사진은 저장하지 않습니다. Android는 시스템 사진 선택기(`onShowFileChooser`), TTS(`HankkiVoice`), YouTube·Instagram iframe 허용으로 연결했습니다.
 
