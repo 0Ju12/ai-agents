@@ -123,3 +123,13 @@ def test_command_words_inside_sentences(tmp_path, monkeypatch):
     assert send("시간 0").status_code == 422  # 잘못된 명령은 그대로 알려 준다
     reply = send("유산균 아침 8시에 알려줘").json()  # '유산'이 국가유산 해설로 새지 않는다
     assert reply["계획"].get("안내") != "해설"
+
+
+def test_text_files_are_ascii():
+    """Windows pip 은 requirements 를 cp949 로 읽는다. 저장소의 .txt 파일에는 한글을 쓰지 않는다."""
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    files = subprocess.run(["git", "ls-files", "*.txt"], cwd=root, capture_output=True, text=True).stdout.split()
+    assert files and all((root / f).read_bytes().isascii() for f in files), files
