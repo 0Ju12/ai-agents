@@ -31,7 +31,7 @@ DEMO_LOTS = [
     ("두부", 300, 1), ("달걀", 500, 9), ("대파", 80, 3), ("양파", 400, 14), ("김치", 600, 25),
     ("밥", 420, 2), ("플레인요거트", 450, 4), ("바나나", 240, 2), ("시금치", 150, 2), ("닭가슴살", 200, 3),
     ("토마토", 300, 5), ("오이", 140, 6), ("식용유", 500, 180), ("간장", 500, 300), ("참기름", 160, 200),
-    ("오트밀", 400, 120), ("감자", 450, 20), ("당근", 200, 12),
+    ("오트밀", 400, 120), ("감자", 450, 20), ("당근", 200, 12), ("마늘", 80, 10), ("설탕", 500, 365), ("깨", 100, 180),
 ]
 
 
@@ -44,7 +44,7 @@ def seed_demo(state, day):
     state["demo_seeded"] = True
 
 
-def ranked(state, meals, refs, day, limit=None, top=3):
+def ranked(state, meals, refs, day, limit=None, top=3, light=False):
     """조건을 통과한 메뉴를 select_meal 과 같은 기준으로 줄 세우고, 사람이 읽을 근거를 붙인다."""
     available = inventory(state, day)
     out = []
@@ -65,8 +65,12 @@ def ranked(state, meals, refs, day, limit=None, top=3):
         protein = plan["영양"].get("protein_g")
         if protein is not None:
             reasons.append(f"단백질 {protein:g}g")
+        kcal = plan["예상 kcal"]
+        if light and kcal is not None:
+            reasons.insert(0, f"{kcal}kcal")
         key = (
             len(plan["부족분"]),
+            (kcal if kcal is not None else 9999) if light else 0,
             soon[0][1] if soon else 999,
             -(protein or 0) if state.get("diet") == "단백질 우선" else 0,
             plan["조리시간(분)"],
@@ -121,22 +125,66 @@ def decide(message, top, emit):
     return actions, servings, how, reason, said
 
 
-def run(state, message, meals, refs, day, emit, limit=None, media=None, named=None):
-    """자동 진행을 실행하고 결과 묶음을 돌려준다. media(menu) 는 영상 조회 함수."""
+def options(pool, shown=(), kr=()):
+    """선택지 묶음: 바로 가능 · 1~2개만 사면 가능 · 국내 레시피. 이미 보여 준 메뉴는 뺀다."""
+    fresh = [x for x in pool if x["메뉴"] not in shown]
+    return {
+        "바로 가능": [x for x in fresh if not x["부족분"]][:4],
+        "조금만 사면": [x for x in fresh if 1 <= len(x["부족분"]) <= 2][:3],
+        "국내 레시피": [x for x in kr if x["메뉴"] not in shown][:4],
+    }
+
+
+def run(state, message, meals, refs, day, emit, limit=None, media=None, named=None, more=False, kr=None, wanted=None):
+    """자동 진행을 실행하고 결과 묶음을 돌려준다. media(menu) 는 영상 조회, kr() 은 국내 레시피 후보 조회 함수."""
     emit("node_start", "자동 진행")
-    top3 = ranked(state, meals, refs, day, limit, top=len(meals))
-    if named:  # 사용자가 메뉴 이름을 말했으면 그 메뉴를 1순위로
-        top3.sort(key=lambda x: x["메뉴"] != named)
-    top3 = top3[:3]
+    hits, cue, light, said_menu = wanted or ([], "", False, "")
+    pool = ranked(state, meals, refs, day, limit, top=len(meals), light=light)
+    if hits:  # 말한 메뉴·종류에 맞는 레시피를 앞으로 (그 안에서는 원래 순서 유지)
+        inside = {x["메뉴"] for x in pool}
+        if limit is not None or state.get("minutes"):
+            # 콕 집어 말한 메뉴는 가용 시간을 넘어도 후보로 보여 주고, 넘는 시간을 근거에 적는다
+            wide = {**state, "minutes": 240}
+            for x in ranked(wide, {t: meals[t] for t in hits if t not in inside}, refs, day, None, top=len(hits), light=light):
+                over = x["조리시간(분)"] - min(state["minutes"], limit or state["minutes"])
+                x["근거"].insert(0, f"가용 시간보다 {over}분 더 걸려요")
+                x["시간 초과"] = over
+                pool.append(x)
+        pool.sort(key=lambda x: (x["메뉴"] not in hits, x.get("시간 초과", 0) > 0 and x["메뉴"] not in hits))
+    if named:  # 사용자가 메뉴 이름을 그대로 말했으면 그 메뉴를 1순위로
+        pool.sort(key=lambda x: x["메뉴"] != named)
+    missed = said_menu if said_menu and not hits and not named else ""
+    shown = state.get("shown_picks", []) if more else []
+    pool = [x for x in pool if x["메뉴"] not in shown] if more else pool
+    kr_rows = kr() if kr else []
+    choice = options(pool, shown, kr_rows)
+    top3 = pool[:3]
     top = top3[0] if top3 else None
-    actions, servings, how, reason, said = decide(message, top, emit)
+    if more:  # "다른 후보" 요청: 후보만 새로 보여 주고 다른 작업은 하지 않는다 (모델 호출 없음)
+        actions, servings, how, reason, said = [], 1, "규칙", "이미 보여 드린 후보를 빼고 다음 후보를 골랐어요", ""
+    else:
+        actions, servings, how, reason, said = decide(message, top, emit)
+    listed = [x["메뉴"] for group in choice.values() for x in group] + [x["메뉴"] for x in top3]
+    state["shown_picks"] = list(dict.fromkeys((shown if more else []) + listed))[-60:]
     done = []
+    if top and top.get("시간 초과", 0) > 0 and "메뉴확정" in actions:
+        # 콕 집어 말한 메뉴가 가용 시간을 넘으면 시간을 늘리고, 되돌릴 수 있게 알린다
+        old = state["minutes"]
+        state["minutes"] = top["조리시간(분)"]
+        done.append({"작업": "가용 시간 조정", "결과": f"{old}분 → {state['minutes']}분 ({top['메뉴']} 조리 시간)", "되돌리기": f"시간 {old}"})
+        limit = None
     if "메뉴확정" in actions:
         state["wanted"], state["view_wanted"] = top["메뉴"], True
         done.append({"작업": "메뉴 확정", "결과": f"{top['메뉴']} · {', '.join(top['근거'])}", "되돌리기": "메뉴 자동"})
     if "장바구니" in actions:
+        # 자동으로 담았던 다른 메뉴의 재료는 빼고(직접 담은 것은 유지) 이번 메뉴의 부족분만 담는다
+        cart = state.setdefault("cart", {})
+        for name in [k for k, v in cart.items() if v.get("auto") and v.get("meal") != top["메뉴"]]:
+            del cart[name]
         plan = select_meal({**state, "wanted": top["메뉴"]}, meals, refs, day, limit)
         missing, _ = add_shortages(state, plan, servings)
+        for name in missing:
+            cart[name]["auto"] = True
         if missing:
             items = ", ".join(f"{k} {v:g}g" for k, v in missing.items())
             done.append({"작업": "장바구니 담기", "결과": f"{servings}인분 기준 {items}", "되돌리기": [f"장바구니삭제 {k}" for k in missing]})
@@ -153,10 +201,12 @@ def run(state, message, meals, refs, day, emit, limit=None, media=None, named=No
     return {
         "자동 진행": done,
         "추천 후보": top3,
+        "선택지": choice,
+        "더보기": more,
         "확정 메뉴": top["메뉴"] if top and "메뉴확정" in actions else None,
         "인분": servings,
         "판단 방법": how,
-        "판단 이유": reason,
+        "판단 이유": (f"‘{cue}’에 맞는 레시피에서 골랐어요. " if hits else "") + (f"‘{missed}’ 레시피는 아직 없어 지금 재료로 가능한 메뉴를 골랐어요. " if missed else "") + ("열량이 낮은 순으로 골랐어요. " if light else "") + reason,
         "메시지": said,
         "영상": found,
         "조리 모드": {"title": top["메뉴"], "servings": servings} if top and "조리모드" in actions else None,

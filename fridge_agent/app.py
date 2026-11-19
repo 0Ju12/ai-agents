@@ -57,12 +57,14 @@ from storage import (
 import workflow
 from workflow import execute
 import autopilot
+import menu_match
 import reminders
 import cook_guide
 import food_tools
 import media
 import photos
 import video_guide
+import workout_guide
 
 app = FastAPI(title="한끼 · 냉장고 생활 코치", version="1.0.0")
 app.dependency_overrides[get_store] = local_store
@@ -193,6 +195,62 @@ def import_recipe(state, params):
     }
     state["wanted"] = title
     state["view_wanted"] = True
+
+
+def korean_options(state, day, emit, term=None):
+    """소비기한이 가장 급한 재료로 식약처 레시피를 찾아 부족 재료 수로 줄 세운다(키가 있을 때만, 24시간 캐시)."""
+    if not os.getenv("FOODSAFETY_API_KEY"):
+        return []
+    from agent_roles import recipe_ingredients
+    from domain.kitchen import inventory
+
+    available = inventory(state, day)
+    urgent = sorted((v["earliest"], k) for k, v in available.items() if v.get("earliest"))
+    terms = [term] if term else [k for _, k in urgent[:2]] or list(available)[:1]
+    have = set(available)
+    found = {}
+    for term in terms:
+        emit("tool_call", "kr_recipe", argument=term)
+        try:
+            res = food_tools.call("kr_recipe", term)
+        except (OSError, ValueError, KeyError, TypeError):
+            res = {"ok": False, "error": "SOURCE_UNAVAILABLE"}
+        emit("tool_result", "kr_recipe", ok=res.get("ok", False), error=res.get("error"))
+        for row in res.get("data", []) if res.get("ok") else []:
+            names = [canonical(n) for n in recipe_ingredients(row.get("재료·분량"))]
+            used = [n for n in names if n in have]
+            if not row.get("조리 순서") or (not used and not term):
+                continue
+            missing = [n for n in names if n not in have and n not in ("물", "소금", "후추", "설탕")]
+            state.setdefault("external_recipes", {})[str(row["id"])] = row
+            found[str(row["id"])] = {
+                "메뉴": row["메뉴"], "id": str(row["id"]), "사진": media.proxied(row.get("대표 사진") or ""),
+                "근거": [f"{term} 사용", "재료 모두 보유" if not missing else f"부족 {len(missing)}종({', '.join(missing[:3])})", f"{len(row['조리 순서'])}단계"],
+                "부족분": missing[:6], "출처": "식품안전나라", "국내": True,
+            }
+    return sorted(found.values(), key=lambda x: len(x["부족분"]))[:6]
+
+
+def record_note(command, arg, intent, params, state, day):
+    daily = state["daily"].get(day, {})
+    if command == "물":
+        return f"물 {water_amount(arg)}mL를 기록했어요. 오늘 {daily.get('water_ml', 0):g}mL 마셨어요."
+    if command == "수면":
+        return f"수면 {daily.get('sleep_hours')}시간을 기록했어요."
+    if command in {"추가", "입고"}:
+        names = arg or params.get("name", "")
+        return f"냉장고에 {names}을(를) 넣었어요. 중량과 소비기한을 넣으면 추천이 더 정확해져요."
+    if command == "삭제":
+        return f"냉장고에서 {arg}을(를) 뺐어요."
+    if command == "알림추가":
+        r = state.get("reminders", [])[-1:]
+        if r:
+            r = r[0]
+            when = f"{r['start']}~{r['end']} {r['every_min'] // 60 if r['every_min'] % 60 == 0 else r['every_min']}{'시간' if r['every_min'] % 60 == 0 else '분'}마다" if r["kind"] == "water" else ", ".join(r["times"])
+            return f"{r['title']} 알림을 만들었어요 · {when}. 기록 탭에서 바꿀 수 있어요."
+    if command == "운동완료":
+        return "운동을 기록했어요. 체감 난이도를 다음 루틴에 반영할게요."
+    return None
 
 
 CUPS = {"한": 1, "반": 0.5, "두": 2, "세": 3, "네": 4, "1": 1, "2": 2, "3": 3, "4": 4}
@@ -415,7 +473,7 @@ def snapshot(state):
                 "budget_krw",
             )
         },
-        "운동 계획": routine(state, state["minutes"]),
+        "운동 계획": routine(state, state.get("exercise_minutes", 10)),  # 운동 탭·운동 모드와 같은 기준
         "메뉴 목록": list(meals),
     }
 
@@ -464,7 +522,11 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
     if spoken:  # "비타민D 아침 9시에 알려줘", "물 2시간마다 알려줘"
         command, arg, params = "알림추가", "", spoken
         emit("llm_decision", "알림 해석", method="rule", decision=spoken["kind"], reason="알림 요청 문장")
-    if command == "확인" and any(t in message for t in kitchen_catalog(state)[0]):
+    buy = menu_match.shopping_item(message) if not explicit and message.partition(" ")[0] not in COMMANDS else None
+    if buy:  # "두부 사고 싶어" → 장보기
+        command, arg = "쇼핑", buy
+        emit("llm_decision", "장보기 해석", method="rule", decision=buy, reason="구매 요청 문장")
+    if command == "확인" and (any(t in message for t in kitchen_catalog(state)[0]) or menu_match.matches(message, kitchen_catalog(state)[0])[0]):
         command, arg = "추천", ""  # 메뉴 이름을 말한 상황 문장은 추천·자동 진행으로
     emit("llm_decision", "요청 분류", method="rule", decision=command, reason="요청과 변경할 조건 확인")
     emit("node_end", "분석")
@@ -548,7 +610,13 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
             return autopilot.merge_links(found, state.get("media_links", {}).get(menu, []), count)
 
         named = next((t for t in sorted(meals, key=len, reverse=True) if t in message), None)
-        extra = autopilot.run(state, message, meals, refs, day, emit, limit, find_media, named)
+        more = arg == "더보기"
+        wanted = menu_match.matches(message, meals)
+
+        def find_korean():  # 말한 메뉴가 내 레시피에 없으면 그 이름으로 국내 레시피를 찾는다
+            return korean_options(state, day, emit, None if wanted[0] or named else wanted[3] or None)
+
+        extra = autopilot.run(state, message, meals, refs, day, emit, limit, find_media, named, more, find_korean, wanted)
         snap = snapshot(state)
         merged = {**snap["계획"], **extra}
         # 자동 진행 판단에서 모델이 문장까지 썼으면 답변 호출을 생략한다 (모델 호출 3회 → 2회)
@@ -585,9 +653,16 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
     if command == "헬스장" and arg:
         state["area"] = arg
     state["previous_topic"] = previous
+    note = record_note(command, arg, intent, params, state, day)
+    if note:  # 기록 명령은 무엇을 했는지 한 줄로 알려 준다
+        result = {**result, "안내": note}
     if command == "운동":
         plan = routine(state, state.get("exercise_minutes", 10))
-        result = {"운동 루틴": plan, "안내": "조건을 반영해 오늘 운동 루틴을 바꿨어요." if plan["steps"] else plan["summary"]}
+        result = {
+            "운동 루틴": plan,
+            "운동 선택지": workout_guide.options(state, day)["options"],
+            "안내": "조건을 반영해 오늘 운동 루틴을 바꿨어요." if plan["steps"] else plan["summary"],
+        }
     if command == "주간계획":
         result = {"주간": weekly(state, *kitchen_catalog(state), day)}
     if snap["계획"].get("예시 1인분(g)"):
@@ -734,6 +809,32 @@ def guide_media(body: MediaRequest):
     result = autopilot.merge_links(result, links, len(body.steps))
     emit("node_end", "조리 영상")
     return {**result, "추적": steps}
+
+
+class WorkoutRequest(BaseModel):
+    session_id: str = Field(default="default", min_length=1, max_length=80)
+
+
+@app.post("/api/workout/guide")
+def workout_plan(body: WorkoutRequest):
+    """운동 모드: 오늘 루틴의 단계별 안내와 다른 선택지."""
+    state = KitchenDB().read(body.session_id)[1]
+    day = today().isoformat()
+    return {**workout_guide.build(state), **workout_guide.options(state, day)}
+
+
+class ExerciseMediaRequest(BaseModel):
+    session_id: str = Field(default="default", min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=40)
+
+
+@app.post("/api/workout/media")
+def workout_media(body: ExerciseMediaRequest):
+    """동작 자세 영상(YouTube)과 직접 붙인 링크."""
+    emit, steps = tracer(body.session_id)
+    found = video_guide.media_for(body.name.strip(), [], emit, kind="workout")
+    links = KitchenDB().read(body.session_id)[1].get("media_links", {}).get(body.name.strip(), [])
+    return {**autopilot.merge_links(found, links, 0), "추적": steps}
 
 
 @app.get("/api/media")

@@ -55,9 +55,14 @@ def workout(text):
     return Intent(action="운동", body=body_of(text), minutes=minutes, level=level_of(text))
 
 
+MORE = re.compile(r"(다른|딴|또 다른|더)\s*(추천|후보|메뉴|거|것|요리|레시피|선택지)")
+
+
 def parse(text, emit, allow_command=True):
     command, _, arg = text.strip().partition(" ")
     arg = arg.strip()
+    if MORE.search(text) and "운동" not in text:  # "다른 추천 후보 알려줘" → 되묻지 않고 다음 후보
+        return Intent(action="추천", argument="더보기")
     if allow_command and command in COMMANDS:
         return Intent(action=command, argument=arg)
     rule_workout = workout(text)
@@ -170,8 +175,10 @@ def parse(text, emit, allow_command=True):
         or "추천" in text
         or any(w in text for w in ("먹고 싶", "뭐 먹", "먹을", "먹자", "배고", "저녁", "점심", "아침", "해먹", "만들", "요리", "식사", "메뉴", "인분"))
     ):
+        hello = re.search(r"(안녕|하이|hello|hi\b|반가)", text, re.I)
         return Intent(
             action="확인",
-            argument="재료 등록, 식단, 운동 중 어떤 도움이 필요한가요? 예를 들어 ‘추가 두부, 달걀’이라고 입력해 주세요.",
+            argument=("안녕하세요! " if hello else "")
+            + "무엇을 도와드릴까요? 예를 들어 ‘저녁 추천해줘’, ‘두부 사고 싶어’, ‘어깨 운동 30분 하고 싶어’, ‘물 2시간마다 알려줘’처럼 말해 주세요.",
         )
     return intent

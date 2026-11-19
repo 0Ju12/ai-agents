@@ -37,7 +37,9 @@ function compact(msg, r) {
       kind: "auto",
       done: p["자동 진행"].map((d) => ({ ...d, undone: false })),
       picks: p["추천 후보"] || [],
-      menu: p["확정 메뉴"] || p["추천 후보"]?.[0]?.["메뉴"] || "",
+      groups: p["선택지"] || null,
+      more: !!p["더보기"],
+      menu: p["확정 메뉴"] || (p["더보기"] ? "" : p["추천 후보"]?.[0]?.["메뉴"] || ""),
       servings: p["인분"] || 1,
       how: p["판단 방법"] || "",
       why: p["판단 이유"] || "",
@@ -45,7 +47,8 @@ function compact(msg, r) {
       note: p["안내"] || "",
       cart: Object.keys(r["장바구니"] || {}).length,
     };
-  if (p["운동 루틴"]) return { ...base, kind: "workout", routine: p["운동 루틴"], note: p["안내"] || "" };
+  if (p["운동 루틴"]) return { ...base, kind: "workout", routine: p["운동 루틴"], options: p["운동 선택지"] || [], note: p["안내"] || "" };
+  if (p["검색어"] && p["직접 검색"]) return { ...base, kind: "shopping", term: p["검색어"], links: p["직접 검색"], items: Object.values(p["자료"] || {}).flatMap((x) => (x.ok ? x.data.slice(0, 3) : [])), budget: p["예산 안내"] || "" };
   const reminder = (r["추적"] || []).some((e) => e.name === "알림 해석");
   if (reminder) return { ...base, kind: "reminder", note: "알림을 만들었어요. 기록 탭에서 시간과 상태를 확인할 수 있어요." };
   const text = p["답변"] || p["안내"] || (p["메뉴"] ? `${p["메뉴"]} · ${p["판단 기준"] || ""}` : "") || "반영했어요.";
@@ -83,7 +86,27 @@ function doneList(m) {
     .join("")}</ol>`;
 }
 
+function pickRow(m, x, i) {
+  const chosen = x["메뉴"] === m.menu;
+  const action = x["국내"]
+    ? btn("조리 모드", "cookModeExt", "chip", "timer", x.id)
+    : chosen
+      ? pill("선택됨")
+      : btn("이걸로", "agentChoose", "chip", "", JSON.stringify([m.id, x["메뉴"]]));
+  return `<article class="pick ${chosen ? "on" : ""}">${x["사진"] ? `<img class="pick-photo" src="${esc(x["사진"])}" alt="" loading="lazy" onerror="this.remove()">` : `<b>${i + 1}</b>`}<div><strong>${esc(x["메뉴"])}</strong><small>${x["근거"].map(esc).join(" · ")}</small></div>${action}</article>`;
+}
+function groupsList(m) {
+  const g = m.groups;
+  const sections = [
+    ["바로 가능", "지금 재료로 바로 만들 수 있어요"],
+    ["조금만 사면", "1~2가지만 사면 만들 수 있어요"],
+    ["국내 레시피", "식품안전나라 레시피에서 찾았어요"],
+  ].filter(([k]) => g[k]?.length);
+  if (!sections.length) return "";
+  return sections.map(([k, d]) => `<p class="sec">${esc(k)} <span class="muted">· ${esc(d)}</span></p><div class="picks">${g[k].map((x, i) => pickRow(m, x, i)).join("")}</div>`).join("") + `<div class="cta">${btn("다른 후보 더 보기", "agentSay", "btn alt", "list-filter", "다른 후보 알려줘")}</div>`;
+}
 function picksList(m) {
+  if (m.groups) return groupsList(m);
   if (!m.picks.length) return "";
   return `<div class="picks">${m.picks
     .map(
@@ -113,15 +136,20 @@ function mediaBlock(m) {
 function agentCard(m) {
   let body = m.answer ? `<p class="answer">${esc(m.answer)}</p>` : "";
   if (m.kind === "auto") {
-    body += m.done.length ? `<p class="sec">제가 진행한 일</p>${doneList(m)}` : `<p>${esc(m.note || "조건에 맞는 메뉴가 없어요. 시간이나 조건을 바꿔 말해 주세요.")}</p>`;
-    body += m.picks.length ? `<p class="sec">추천 후보</p>${picksList(m)}` : "";
-    body += m.menu
+    body += m.done.length ? `<p class="sec">제가 진행한 일</p>${doneList(m)}` : m.more ? `<p>이미 보여 드린 메뉴를 빼고 다른 후보를 골랐어요.</p>` : `<p>${esc(m.note || "조건에 맞는 메뉴가 없어요. 시간이나 조건을 바꿔 말해 주세요.")}</p>`;
+    body += m.groups || m.picks.length ? `${m.groups ? "" : '<p class="sec">추천 후보</p>'}${picksList(m)}` : "";
+    body += m.menu && !m.more
       ? `<div class="cta">${btn(`${m.servings}인분 조리 시작`, "agentCook", "btn", "timer", JSON.stringify([m.menu, m.servings]))}${m.cart ? btn("장바구니 보기", "pantry", "btn alt", "shopping-bag") : ""}</div><p class="sec">${esc(m.menu)} 영상</p><div class="media">${mediaBlock(m)}</div>`
       : "";
     body += m.how ? `<p class="footnote">판단 · ${esc(m.how)}${m.why ? " · " + esc(m.why) : ""}</p>` : "";
   } else if (m.kind === "workout") {
     const r = m.routine;
-    body += `<div class="workout-card"><div class="wk-head">${disk("dumbbell", "peach")}<div><strong>${esc(r.move || r.summary)}</strong><small>${esc(r.level || "")} · ${esc(r.body)} · 휴식 포함 ${r.minutes}분</small></div></div>${r.steps.length ? `<ol class="step-list">${r.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>` : `<p>${esc(r.summary)}</p>`}</div><div class="cta">${btn("운동 탭에서 보기", "workout", "btn", "dumbbell")}${btn("완료 기록", "finish", "btn alt", "check")}</div>`;
+    const ex = r.exercises || [];
+    body += `<div class="workout-card"><div class="wk-head"><div class="wk-mini">${ex[0] && typeof figureSVG === "function" ? figureSVG(motionOf(ex[0].name), null, { label: ex[0].name }) : disk("dumbbell", "peach")}</div><div><strong>${esc(r.move || r.summary)}</strong><small>${esc(r.level || "")} · ${esc(r.body)} · 휴식 포함 ${r.minutes}분</small></div></div>${r.steps.length ? `<ol class="step-list">${r.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>` : `<p>${esc(r.summary)}</p>`}</div>
+      <div class="cta">${r.steps.length ? btn("운동 모드 시작", "wkStart", "btn", "timer") : ""}${btn("운동 탭에서 보기", "workout", "btn alt", "dumbbell")}</div>
+      ${(m.options || []).length ? `<p class="sec">다른 선택지</p><div class="picks">${m.options.map((o) => `<article class="pick"><div><strong>${esc(o.title)}</strong><small>${esc(o.why)} · ${esc(o.summary || "")}</small></div>${btn("이걸로", "wkApply", "chip", "", JSON.stringify(o.apply))}</article>`).join("")}</div>` : ""}`;
+  } else if (m.kind === "shopping") {
+    body += `<p><strong>${esc(m.term)}</strong> 상품을 찾아봤어요.</p>${m.items.length ? `<div class="picks">${m.items.map((x) => `<article class="pick"><div><strong>${x.url ? a(x.title, x.url) : esc(x.title)}</strong><small>${x.price_krw != null ? fmt(x.price_krw) + "원 · " : ""}${esc(x.merchant || "")}${x["100g당 가격"] ? " · 100g당 " + fmt(x["100g당 가격"]) + "원" : ""}</small></div></article>`).join("")}</div>` : '<p class="hint">쇼핑 API 키가 없어 상품 목록 대신 바로 검색할 수 있는 링크를 드려요.</p>'}<div class="cta">${Object.entries(m.links).map(([k, u]) => `<a class="btn alt" href="${esc(u)}" rel="noopener noreferrer">${esc(k)} ↗</a>`).join("")}</div>${m.budget ? `<p class="footnote">${esc(m.budget)}</p>` : ""}`;
   } else if (m.kind === "reminder") {
     body += `<p>${esc(m.note)}</p><div class="cta">${btn("알림 보기", "journal", "btn alt", "notebook-pen")}</div>`;
   } else if (m.kind === "error") {
@@ -203,6 +231,10 @@ async function loadMedia(menu) {
   if (route() === "agent") render();
 }
 
+const MOTION_HINT = { 걷기: "walk", 스텝: "walk", 스쿼트: "squat", 의자: "squat", 런지: "lunge", "벽 밀기": "wallpush", "벽 푸시업": "wallpush", 인클라인: "incline", 푸시업: "pushup", 플랭크: "plank", 숄더: "shouldertap", 버드독: "birddog", 데드버그: "deadbug", "엎드린": "prone", 스노우엔젤: "prone", 프론: "prone", "벽 슬라이드": "wallslide", 버티기: "raise", 레이즈: "raise", 컬: "curl", 로우: "row" };
+function motionOf(name) {
+  return Object.entries(MOTION_HINT).find(([k]) => name.includes(k))?.[1] || "walk";
+}
 function findMsg(id) {
   return thread.find((m) => m.id === id);
 }
@@ -273,12 +305,7 @@ Object.assign(action, {
   },
   agentCook: async (raw) => {
     const [title, servings] = JSON.parse(raw);
-    guide = await api("/api/guide", "POST", { title, servings });
-    mediaInfo = null;
-    videoAt = 0;
-    tab = "anim";
-    sheet(guide["메뉴"] + " · 조리 모드", "");
-    showStep(0);
+    await openGuide({ title, servings });
   },
   agentMedia: (menu) => loadMedia(menu),
   agentVideo: (raw) => {

@@ -41,7 +41,7 @@ def test_servings_drive_cart_and_no_buy_words():
     api.run("데모")
     r = api.run("두부 달걀찜 4명이서 먹고 싶어")
     assert r["계획"]["추천 후보"][0]["메뉴"] == "두부 달걀찜" and r["계획"]["인분"] == 4
-    assert r["장바구니"] == {"두부": {"grams": 100.0, "meal": "두부 달걀찜"}}  # 4인분 400g - 보유 300g
+    assert r["장바구니"] == {"두부": {"grams": 100.0, "meal": "두부 달걀찜", "auto": True}}  # 4인분 400g - 보유 300g, 자동으로 담은 표시
     cart = next(d for d in r["계획"]["자동 진행"] if d["작업"] == "장바구니 담기")
     assert cart["되돌리기"] == ["장바구니삭제 두부"]
     api.run("장바구니삭제 두부")
@@ -96,3 +96,41 @@ def test_workout_sentence_is_not_a_gym_search():
     assert r["body"] == "어깨" and r["minutes"] == 30 and len(r["exercises"]) >= 2
     assert api.run("초보 하체 루틴 20분")["계획"]["운동 루틴"]["level"] == "초보"
     assert "어느 동네" in api.run("헬스장 찾아줘")["계획"]["안내"]
+
+
+def test_menu_words_categories_and_light_meals():
+    api.run("데모")
+    assert api.run("김치찌개 먹고 싶어")["계획"]["추천 후보"][0]["메뉴"] == "돼지고기 김치찌개"
+    r = api.run("파스타 해먹고 싶어 둘이서")
+    assert "파스타" in r["계획"]["추천 후보"][0]["메뉴"] and r["장바구니"]["파스타"]["grams"] == 180
+    assert set(api.run("배고파")["장바구니"]) == set()  # 다른 메뉴로 바뀌면 자동으로 담았던 재료는 뺀다
+    meat = api.run("고기 먹고 싶어")["계획"]["추천 후보"]
+    assert all(any(k in x["메뉴"] for k in ("고기", "닭", "불고기", "제육")) for x in meat)
+    light = api.run("다이어트 중인데 저녁")["계획"]
+    kcal = [x["예상 kcal"] for x in light["추천 후보"]]
+    assert kcal == sorted(kcal) and "열량" in light["판단 이유"]
+    assert api.run("두부 사고 싶어")["계획"]["검색어"] == "두부"
+    assert "물 500mL를 기록" in api.run("물 500ml")["계획"]["안내"]
+    assert api.run("안녕")["계획"]["안내"].startswith("안녕하세요")
+
+
+def test_named_menu_over_time_limit_adjusts_time_with_undo():
+    api.run("데모")
+    api.run("퇴근했는데 20분밖에 없어. 단백질 위주로 먹고 싶어")
+    p = api.run("김치찌개 먹고 싶어")["계획"]
+    assert p["추천 후보"][0]["메뉴"] == "돼지고기 김치찌개" and p["메뉴"] == "돼지고기 김치찌개"
+    step = p["자동 진행"][0]
+    assert step["작업"] == "가용 시간 조정" and step["되돌리기"] == "시간 20"
+
+
+def test_exercise_photos_are_served_from_allowed_source():
+    from fastapi.testclient import TestClient
+    import media
+
+    api.run("하체 운동 20분 중급")
+    g = TestClient(api.app).post("/api/workout/guide", json={}).json()
+    squat = next(s for s in g["단계"] if s["name"] == "맨몸 스쿼트")
+    assert len(squat["photos"]) == 2 and squat["photos"][0].startswith("/api/media?u=") and "퍼블릭 도메인" in squat["credit"]
+    assert media.allowed("https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/0.jpg")
+    assert not media.allowed("https://raw.githubusercontent.com/evil/repo/main/x.jpg")
+    assert not media.allowed("https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/../../x")

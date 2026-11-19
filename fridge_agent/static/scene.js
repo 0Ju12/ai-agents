@@ -42,11 +42,16 @@ function bowl(items, whisk = true) {
     ${whisk ? `<g class="ks-whisk"><line x1="200" y1="110" x2="210" y2="196" stroke="#9aa5a0" stroke-width="6" stroke-linecap="round"/><ellipse cx="211" cy="196" rx="14" ry="22" fill="none" stroke="#9aa5a0" stroke-width="3"/></g>` : ""}</g>`;
 }
 function board(items) {
+  // 한 손으로 재료를 누르고(손끝을 구부린 자세) 칼이 오른쪽으로 옮겨 가며 네 번 썰면 조각이 하나씩 떨어져 나간다
   const food = items[0] || "🥕";
-  return `<g class="ks-board"><rect x="70" y="200" width="260" height="44" rx="12" fill="#c99a62"/><rect x="70" y="200" width="260" height="10" rx="5" fill="#ddb37d"/>
-    ${svgEmoji(food, 170, 186, 44, "ks-whole")}
-    ${[0, 1, 2].map((i) => svgEmoji(food, 236 + i * 24, 196, 20, "ks-piece", i)).join("")}
-    <g class="ks-knife"><path d="M190 120 l70 -8 l4 14 l-74 22z" fill="#dfe5e3" stroke="#aab4b0" stroke-width="2"/><rect x="258" y="104" width="46" height="14" rx="6" fill="#3d3d3d" transform="rotate(-6 258 104)"/></g></g>`;
+  const strips = [0, 1, 2, 3]
+    .map((k) => `<clipPath id="ks-strip${k}"><rect x="${170 + k * 16}" y="130" width="16" height="90"/></clipPath><g clip-path="url(#ks-strip${k})" class="ks-slice" style="--k:${k}">${svgEmoji(food, 200, 176, 76)}</g>`)
+    .join("");
+  return `<g class="ks-board"><rect x="60" y="214" width="280" height="34" rx="12" fill="#c99a62"/><rect x="60" y="214" width="280" height="8" rx="4" fill="#ddb37d"/>
+    <clipPath id="ks-rest"><rect x="120" y="130" width="50" height="90"/></clipPath><g clip-path="url(#ks-rest)">${svgEmoji(food, 200, 176, 76)}</g>
+    ${strips}
+    <text class="ks-hand" x="150" y="150" font-size="44" text-anchor="middle" dominant-baseline="central">🤚</text>
+    <g class="ks-blade"><path d="M232 76 l10 0 l6 112 l-22 0 z" fill="#e8eeec" stroke="#9fb0a9" stroke-width="2"/><rect x="228" y="44" width="18" height="36" rx="6" fill="#3d3d3d"/></g></g>`;
 }
 function dropScene(items, inPot) {
   const target = inPot

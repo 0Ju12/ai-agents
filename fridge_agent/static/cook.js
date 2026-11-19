@@ -107,7 +107,7 @@ async function ensureMedia() {
   if (mediaInfo) return;
   const r = await api("/api/guide/media", "POST", { menu: guide["메뉴"], steps: guide["단계"].map((c) => c["설명"]) });
   mediaInfo = r;
-  if (dialog.open && guide) paint();
+  if (dialog.open && guide && $("#sheet-body .cook")) paint(); // 다른 화면으로 바뀌었으면 덮어쓰지 않는다
 }
 function cookCard() {
   const card = guide["단계"][stepAt],
@@ -117,10 +117,11 @@ function cookCard() {
     secs = card["타이머(초)"];
   return `<div class="cook">
   <div class="cook-progress" aria-label="${stepAt + 1}/${total}단계"><i style="width:${((stepAt + 1) / total) * 100}%"></i></div>
+  <div class="serv-row"><span>분량</span>${btn("−", "cookServ", "chip", "", -1)}<b>${guide["인분"]}인분</b>${btn("+", "cookServ", "chip", "", 1)}</div>
   <div class="cook-head"><p class="eyeline">${stepAt + 1} / ${total}단계 · ${esc(card["동작"])}${card["불 세기"] ? ` · <span class="cook-heat">🔥 ${esc(card["불 세기"])}</span>` : ""}</p>${btn(full ? "작게 보기" : "크게 보기", "cookFull", "linkbtn", "panels-top-left")}</div>
   <div class="step-dots" aria-label="단계 이동">${guide["단계"].map((c, i) => `<button type="button" data-do="cookGo" data-arg="${i}" class="${i === stepAt ? "on" : i < stepAt ? "done" : ""}" aria-label="${i + 1}단계${i === stepAt ? " (현재)" : ""}">${i + 1}</button>`).join("")}</div>
   ${tabs()}
-  <div class="cook-body">${tab === "anim" ? stage(card) : tab === "video" ? videoPane() : socialPane()}</div>
+  <div class="cook-body">${tab === "anim" ? stage(card) + stepVideoButton() : tab === "video" ? videoPane() : socialPane()}</div>
   <p class="cook-text">${esc(card["설명"])}</p>
   ${card["팁"] ? `<p class="hint">${esc(card["팁"])}</p>` : ""}
   ${card["재료"].length ? `<div class="btnbar">${card["재료"].map((x) => `<span class="pill ${x["보유"] ? "" : "warn"}">${esc(x["아이콘"] + " " + x["이름"])}${x["분량(g)"] != null ? " " + fmt(x["분량(g)"]) + "g" : ""}${x["보유"] ? "" : " · 미보유"}</span>`).join("")}</div>` : ""}
@@ -183,12 +184,13 @@ function depth3d(canvas) {
     })(t0);
   }).catch(() => {});
 }
+let guideReq = null;
 async function openGuide(req) {
-  const servings = Number(prompt("몇 인분을 만들까요? (1~20)", "1") || 0);
-  if (!servings) return;
+  // 인분은 조리 모드 안의 − / + 로 바꾼다 (기본 1인분 또는 코치가 정한 인분)
+  guideReq = { title: req.title, recipe_id: req.recipe_id };
   markWaiting("조리 단계를 준비하고 있어요…");
   try {
-    guide = await api("/api/guide", "POST", { ...req, servings });
+    guide = await api("/api/guide", "POST", { ...guideReq, servings: req.servings || 1 });
   } finally {
     document.querySelectorAll("#main [data-progress]").forEach((el) => el.remove());
   }
@@ -197,6 +199,14 @@ async function openGuide(req) {
   tab = "anim";
   sheet(guide["메뉴"] + " · 조리 모드", "");
   showStep(0);
+  ensureMedia().catch(() => {}); // 실제 영상을 미리 찾아 두고, 단계와 맞는 장면이 있으면 버튼을 띄운다
+}
+function stepVideoButton() {
+  const yt = mediaInfo?.youtube;
+  if (!yt?.ok) return "";
+  const i = yt.data.findIndex((v) => v.step_starts?.[stepAt] != null);
+  if (i < 0) return "";
+  return btn(`이 단계 실제 영상 보기 (${mmss(yt.data[i].step_starts[stepAt])})`, "cookStepVideo", "btn alt video-cue", "circle-play", i);
 }
 function readFile(input, max = 1280) {
   // 업로드 전에 긴 변을 1280px 로 줄여 JPEG 로 보낸다 (전송량·처리 시간 절감)
@@ -269,6 +279,19 @@ Object.assign(action, {
     if (f) f.src = f.src.replace(/start=\d+/, "start=" + Number(sec)) + (f.src.includes("autoplay") ? "" : "&autoplay=1");
   },
   cookNext: () => showStep(stepAt + 1),
+  cookServ: async (d) => {
+    const servings = Math.max(1, Math.min(20, guide["인분"] + Number(d)));
+    if (servings === guide["인분"]) return;
+    const at = stepAt;
+    guide = await api("/api/guide", "POST", { ...guideReq, servings });
+    stepAt = at;
+    paint();
+  },
+  cookStepVideo: (i) => {
+    videoAt = Number(i);
+    tab = "video";
+    paint();
+  },
   cookGo: (i) => showStep(Number(i)),
   cookFull: () => {
     dialog.classList.toggle("cook-full");

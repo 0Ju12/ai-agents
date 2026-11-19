@@ -35,3 +35,12 @@ USDA ZIP을 받아 `python assets/import_usda.py <zip경로>`로 재생성할 �
 ## 기획 참고
 
 잔여 재료 우선 활용과 단계별 조리 안내가 식재료 등록에서 조리 완료까지 이어지도록 구성했다. 운동 화면은 부위·숙련도 선택과 운동 후 피드백을 반영한다. [오늘의 스토리](https://picks.my/ko_v2s/s/detail/36808/content.html) · [냉픽](https://frescioai.com/) · [플랜핏](https://planfit.ai/)
+
+## 레시피·영양·운동 자료 (추가)
+
+| 자료 | 출처 | 이용 조건 |
+| --- | --- | --- |
+| 1인분 레시피 106종 (`assets/recipes.json`) | 한끼에서 직접 작성. 모든 재료가 아래 영양 참조에 있음 | 저장소 라이선스 |
+| 재료 영양 참조 56종 (`assets/nutrition.json`) | USDA FoodData Central SR Legacy (2018-04) 원본 CSV, `assets/import_usda.py`로 재생성 | 미국 정부 저작물(퍼블릭 도메인) |
+| 운동 실제 시연 사진 10종 | [free-exercise-db](https://github.com/yuhonas/free-exercise-db) 이미지(시작·끝 자세), 서버가 중계·캐시 | Unlicense(퍼블릭 도메인). 사진 내용을 동작 설명과 대조해 맞는 것만 사용 |
+| 운동 하는 방법(준비·동작·호흡·주의) 27종 | 한끼에서 직접 작성한 일반 생활 운동 안내 | 전문가 처방이 아님을 화면에 표시 |

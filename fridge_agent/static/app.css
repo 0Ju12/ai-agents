@@ -1262,3 +1262,89 @@ dialog.cook-full .cook-text { font-size: 1.35rem; }
   .navitem.nav-agent .ic { background: var(--green); color: var(--lime); border-radius: 50%; padding: 4px; width: 28px; height: 28px; }
   .navitem.nav-agent[aria-current="page"] .ic { background: var(--lime); color: var(--green); }
 }
+
+/* ── 운동 화면 · 운동 모드 ───────────────── */
+.fig { display: block; width: 100%; height: auto; border-radius: 16px; }
+.wk-hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 14px; align-items: center; padding: 22px; border-radius: 24px; background: linear-gradient(135deg, #1f4a37, #2f6a4f); color: #fff; }
+.wk-hero h2 { color: #fff; margin: 8px 0 4px; font-size: 1.5rem; }
+.wk-hero p { color: #d6e7d9; margin: 0 0 12px; }
+.wk-hero .pill { background: #ffffff22; color: #fff; border-color: #ffffff33; }
+.wk-hero-fig .fig { background: #fbfaf2; box-shadow: 0 10px 30px #0003; }
+.btn.ghost { background: transparent; color: #fff; border: 1px solid #ffffff66; }
+.ex-list { display: grid; gap: 10px; }
+.ex-card { display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: start; padding: 10px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.ex-info { display: grid; gap: 4px; position: relative; }
+.ex-info small { color: var(--muted); }
+.ex-no { position: absolute; right: 0; top: 0; font-size: 12px; font-weight: 800; color: var(--muted); }
+.warn-text { color: #a4511d; }
+.opt { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.opt > div { display: grid; }
+.opt small { color: var(--muted); }
+.sec-label { font-size: 13px; font-weight: 800; color: var(--muted); margin: 12px 0 6px; }
+.chip.on { background: var(--green); color: #fff; border-color: var(--green); }
+.wk { display: grid; gap: 12px; }
+.wk-stage { position: relative; border-radius: 18px; overflow: hidden; }
+.wk-stage.rest .fig { filter: saturate(0.6); }
+.wk-badge { position: absolute; left: 12px; top: 12px; background: var(--green); color: #fff; font-weight: 800; font-size: 13px; padding: 4px 10px; border-radius: 99px; }
+.wk-stage.rest .wk-badge { background: #2e7bb8; }
+.wk-now { display: flex; gap: 14px; align-items: center; }
+.wk-now h3 { margin: 0; }
+.cook-ring.big { width: 86px; height: 86px; flex: none; }
+.cook-ring.big b { width: 70px; height: 70px; font-size: 18px; }
+.wk-done { text-align: center; justify-items: center; padding: 20px 0; }
+.wk-trophy { font-size: 64px; }
+.wk-mini { width: 96px; flex: none; }
+@media (max-width: 760px) {
+  .wk-hero { grid-template-columns: 1fr; }
+  .ex-card { grid-template-columns: 96px 1fr; }
+}
+.pick-photo { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; flex: none; }
+.bubble .sec .muted { font-weight: 600; }
+
+/* ── 첫 실행 튜토리얼 ─────────────────────── */
+#tour { position: fixed; inset: 0; z-index: 80; display: none; place-items: center; background: #10261dcc; padding: 16px; }
+#tour.on { display: grid; animation: bubble-in 0.25s ease-out; }
+.tour-card { position: relative; width: min(440px, 100%); background: #fafbf3; border-radius: 26px; padding: 28px 24px 20px; display: grid; gap: 10px; box-shadow: 0 30px 90px #0006; }
+.tour-card h2 { margin: 0; font-size: 1.4rem; }
+.tour-card p { margin: 0; color: #34463b; }
+.tour-card ul { margin: 4px 0 0; padding-left: 18px; color: var(--muted); display: grid; gap: 4px; }
+.tour-icon { font-size: 54px; line-height: 1; }
+.tour-skip { position: absolute; right: 14px; top: 14px; }
+.tour-dots { display: flex; gap: 6px; justify-content: center; margin-top: 6px; }
+.tour-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.tour-dots i.on { background: var(--green); width: 22px; border-radius: 99px; }
+.tour-nav { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; }
+
+/* 실제 시연 사진: 시작 ↔ 끝 자세 교차 */
+.photo-demo { position: relative; margin: 0; aspect-ratio: 4 / 3; border-radius: 16px; overflow: hidden; background: #fff; }
+.photo-demo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #fff; }
+.photo-demo img:nth-of-type(2) { animation: pd-swap 2.6s ease-in-out infinite; }
+.photo-demo .pd-label { position: absolute; top: 10px; right: 10px; font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 99px; color: #fff; background: var(--green); }
+.photo-demo .pd-label.b { background: #b4501b; animation: pd-swap 2.6s ease-in-out infinite; }
+.photo-demo .pd-label.a { animation: pd-swap-r 2.6s ease-in-out infinite; }
+.photo-demo figcaption { position: absolute; left: 0; right: 0; bottom: 0; font-size: 11px; color: #fff; padding: 4px 10px; background: linear-gradient(transparent, #0008); }
+@keyframes pd-swap { 0%, 38% { opacity: 0; } 50%, 88% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes pd-swap-r { 0%, 38% { opacity: 1; } 50%, 88% { opacity: 0; } 100% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .photo-demo * { animation: none !important; } }
+/* 썰기: 칼이 네 번 내려가며 오른쪽으로 이동, 조각이 차례로 벌어진다 */
+.ks-blade { transform-box: view-box; transform-origin: 0 0; animation: ks-blade 3.2s ease-in-out infinite; }
+.ks-slice { transform-box: view-box; animation: 3.2s ease-out infinite; }
+.ks-slice[style*="--k:0"] { animation-name: ks-sep0; } .ks-slice[style*="--k:1"] { animation-name: ks-sep1; }
+.ks-slice[style*="--k:2"] { animation-name: ks-sep2; } .ks-slice[style*="--k:3"] { animation-name: ks-sep3; }
+.ks-hand { animation: ks-press 0.8s ease-in-out infinite; }
+@keyframes ks-blade {
+  0% { transform: translate(-58px, -30px); } 8% { transform: translate(-58px, 0); } 16% { transform: translate(-42px, -30px); }
+  25% { transform: translate(-42px, -30px); } 33% { transform: translate(-42px, 0); } 41% { transform: translate(-26px, -30px); }
+  50% { transform: translate(-26px, -30px); } 58% { transform: translate(-26px, 0); } 66% { transform: translate(-10px, -30px); }
+  75% { transform: translate(-10px, -30px); } 83% { transform: translate(-10px, 0); } 100% { transform: translate(-58px, -30px); }
+}
+@keyframes ks-sep0 { 0%, 8% { transform: translateX(0); } 14%, 94% { transform: translateX(18px); } 100% { transform: translateX(0); } }
+@keyframes ks-sep1 { 0%, 33% { transform: translateX(0); } 39%, 94% { transform: translateX(30px); } 100% { transform: translateX(0); } }
+@keyframes ks-sep2 { 0%, 58% { transform: translateX(0); } 64%, 94% { transform: translateX(42px); } 100% { transform: translateX(0); } }
+@keyframes ks-sep3 { 0%, 83% { transform: translateX(0); } 89%, 94% { transform: translateX(54px); } 100% { transform: translateX(0); } }
+
+@keyframes ks-press { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+.serv-row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.serv-row span { color: var(--muted); font-weight: 700; }
+.serv-row b { min-width: 52px; text-align: center; }
+.video-cue { margin-top: 8px; width: 100%; justify-content: center; }

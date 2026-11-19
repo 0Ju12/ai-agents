@@ -14,6 +14,8 @@ from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
 ALLOWED_HOSTS = ("foodsafetykorea.go.kr",)
+# 운동 시연 사진: free-exercise-db (Unlicense, 퍼블릭 도메인) 저장소의 이미지 경로만 허용
+ALLOWED_PREFIXES = ("https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/",)
 MAX_BYTES = 4_000_000
 TYPES = {b"\xff\xd8": ("jpg", "image/jpeg"), b"\x89PNG": ("png", "image/png"), b"RIFF": ("webp", "image/webp"), b"GIF8": ("gif", "image/gif")}
 
@@ -25,6 +27,8 @@ def root():
 
 
 def allowed(url):
+    if any((url or "").startswith(p) and ".." not in url for p in ALLOWED_PREFIXES):
+        return True
     parts = urlsplit(url or "")
     host = (parts.hostname or "").lower()
     return parts.scheme == "https" and any(host == h or host.endswith("." + h) for h in ALLOWED_HOSTS)

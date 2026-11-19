@@ -725,6 +725,80 @@
         }
       }
     },
+    "/api/workout/guide": {
+      "post": {
+        "summary": "Workout Plan",
+        "description": "운동 모드: 오늘 루틴의 단계별 안내와 다른 선택지.",
+        "operationId": "workout_plan_api_workout_guide_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/workout/media": {
+      "post": {
+        "summary": "Workout Media",
+        "description": "동작 자세 영상(YouTube)과 직접 붙인 링크.",
+        "operationId": "workout_media_api_workout_media_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExerciseMediaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/media": {
       "get": {
         "summary": "Media Photo",
@@ -1128,6 +1202,28 @@
         },
         "type": "object",
         "title": "DemoRequest"
+      },
+      "ExerciseMediaRequest": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Session Id",
+            "default": "default"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ExerciseMediaRequest"
       },
       "GuideRequest": {
         "properties": {
@@ -1558,6 +1654,19 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WorkoutRequest": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Session Id",
+            "default": "default"
+          }
+        },
+        "type": "object",
+        "title": "WorkoutRequest"
       }
     }
   }

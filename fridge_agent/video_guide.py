@@ -117,7 +117,7 @@ def cache(name, build):
         return result
 
 
-def youtube_videos(menu):
+def youtube_videos(menu, kind="recipe"):
     """임베드 가능한 조리 영상과 설명란 챕터. 키가 없으면 MISSING_KEY."""
     absent = need("YOUTUBE_API_KEY")
     if absent:
@@ -127,7 +127,7 @@ def youtube_videos(menu):
         base, key = "https://www.googleapis.com/youtube/v3/", os.environ["YOUTUBE_API_KEY"]
         found = request_json(
             base + "search?" + urlencode({
-                "part": "snippet", "q": menu + " 레시피 만들기", "type": "video", "videoEmbeddable": "true",
+                "part": "snippet", "q": menu + (" 운동 자세" if kind == "workout" else " 레시피 만들기"), "type": "video", "videoEmbeddable": "true",
                 "regionCode": "KR", "relevanceLanguage": "ko", "maxResults": 5, "key": key,
             })
         )
@@ -151,15 +151,15 @@ def youtube_videos(menu):
         videos.sort(key=lambda v: (not v["chapters"], -v["views"]))
         return {"ok": True, "data": videos, "source": "YouTube Data API · 임베드 가능한 영상, 설명란 챕터"}
 
-    return cache("youtube:" + menu, build)
+    return cache(f"youtube:{kind}:" + menu, build)
 
 
-def media_for(menu, steps, emit):
+def media_for(menu, steps, emit, kind="recipe"):
     from urllib.error import HTTPError
 
     emit("tool_call", "youtube", argument=menu)
     try:
-        yt = youtube_videos(menu)
+        yt = youtube_videos(menu, kind)
     except (HTTPError, OSError, ValueError, KeyError):
         yt = fail("SOURCE_UNAVAILABLE")
     if yt.get("ok"):
@@ -179,7 +179,7 @@ def media_for(menu, steps, emit):
         "youtube": yt,
         "instagram": ig,
         "직접 검색": {
-            "YouTube": "https://www.youtube.com/results?search_query=" + urlencode({"q": menu + " 레시피"})[2:],
+            "YouTube": "https://www.youtube.com/results?search_query=" + urlencode({"q": menu + (" 운동 자세" if kind == "workout" else " 레시피")})[2:],
             "Instagram": "https://www.instagram.com/explore/tags/" + urlencode({"q": tag})[2:] + "/",
         },
     }

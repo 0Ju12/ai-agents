@@ -12,7 +12,10 @@
     <script defer src="/static/scene.js"></script>
     <script defer src="/static/cook.js"></script>
     <script defer src="/static/agent.js"></script>
+    <script defer src="/static/figure.js"></script>
+    <script defer src="/static/workout.js"></script>
     <script defer src="/static/reminders.js"></script>
+    <script defer src="/static/onboarding.js"></script>
   </head>
   <body>
     <a class="skip" href="#main">본문으로</a>
@@ -27,6 +30,8 @@
         ><span id="crumb">나의 대시보드</span>
         <div class="top-actions">
           <span id="date"></span
+          ><button class="iconbtn" data-do="tour" aria-label="사용법 보기">
+            <svg class="ic"><use href="/static/icons.svg#i-circle-help" /></svg></button
           ><button class="iconbtn" data-do="settings" aria-label="나의 식단 및 운동 설정">
             <svg class="ic"><use href="/static/icons.svg#i-sliders-horizontal" /></svg>
           </button>
