@@ -1,4 +1,4 @@
-"""SQLite 저장소 — 여행 계획(F3015~F3016)과 실행 로그(F3013~F3014).
+"""SQLite 저장소 — 식사·운동 계획(F3015~F3016)과 실행 로그(F3013~F3014).
 
 실행 로그는 추가 · 조회 · 삭제만 있고 수정 함수는 없다 (F3014).
 """
@@ -11,7 +11,11 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-from backend.domain.constraints import intervals_overlap
+
+def intervals_overlap(a_start: datetime, a_end: datetime, b_start: datetime, b_end: datetime) -> bool:
+    """[a_start, a_end) 와 [b_start, b_end) 가 겹치는지 (F3015 계획 겹침)."""
+    return a_start < b_end and b_start < a_end
+
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS plans (
@@ -20,7 +24,7 @@ CREATE TABLE IF NOT EXISTS plans (
     trip_date   TEXT NOT NULL,        -- YYYY-MM-DD
     start_time  TEXT NOT NULL,        -- HH:MM
     end_time    TEXT NOT NULL,        -- HH:MM
-    items_json  TEXT NOT NULL DEFAULT '[]',   -- 장소별 도착·출발, 구간별 교통편
+    items_json  TEXT NOT NULL DEFAULT '[]',   -- 계획 항목(식사·조리·운동 시각)
     created_at  TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS run_logs (

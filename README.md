@@ -1,59 +1,17 @@
-# AI 에이전트 프로젝트
+# 한끼 · 냉장고 생활 코치
 
-## 한끼 · 냉장고 생활 코치
+냉장고 재고(중량·소비기한)를 기준으로 식단·장보기·운동을 추천하는 한국어 Android·웹 앱입니다. 종합 건강관리, 냉장고 털이, 합리적 소비를 한 앱에서 다루는 것이 목표이고, 3회차 과제에서는 그 중심인 Agent를 만들었습니다.
 
-냉장고에 등록한 재료의 중량과 소비기한으로 식단·장바구니·운동을 추천하는 한국어 Android·웹 앱입니다. 조리와 섭취를 따로 기록하고 확인한 출처로 열량과 단백질을 계산합니다.
+> SSAFY AI 코어 프로젝트 3회차(개인) → 최종 프로젝트로 확장합니다.
 
 ![한끼 대시보드](fridge_agent/screens/today-desktop.webp)
 
-[모바일 화면](fridge_agent/screens/today-mobile.webp) · [프로젝트 실행](fridge_agent/README.md) · [3회차 요구사항 추적표](fridge_agent/docs/requirements.md) · [검증 결과](fridge_agent/docs/validation.md) · [설계도](fridge_agent/docs/design.md) · [Android APK](android/artifacts/hankki-debug.apk) · [발표자료](fridge_agent/docs/presentation.pptx)
+[모바일 화면](fridge_agent/screens/today-mobile.webp) · [실행과 키 설정](fridge_agent/README.md) · [요구사항 추적표](fridge_agent/docs/requirements.md) · [설계도](fridge_agent/docs/design.md) · [검증 결과](fridge_agent/docs/validation.md) · [Android APK](android/artifacts/hankki-debug.apk) · [발표자료](fridge_agent/docs/presentation.pptx)
+
+## 실행
 
 ```bash
-cd fridge_agent
-python -m pip install -r requirements.txt
-python app.py
-```
-
-`http://127.0.0.1:8000`에서 `두부, 계란`을 입력하면 키 없이 첫 추천을 확인할 수 있습니다. 국내 API 키를 설정하면 `레시피 달걀찜`으로 재료와 조리법을, `식품영양 두부`로 기준량·열량·단백질을 조회합니다. [키 설정과 사용 예시](fridge_agent/README.md)
-
-## 종합 여행 플래너 Agent
-
-국보·보물, 관광지, 음식점, 카페를 한 일정에 묶고, 사용자가 고른 이동 수단으로 **어디서 무엇을 타고 몇 시에 도착하는지**까지 안내하는 LangGraph Agent 입니다. 장소마다 YouTube 영상과 Instagram 해시태그를 붙이고, 국가유산 해설은 2회차 국보 RAG([heritage-rag-guide](https://github.com/0Ju12/heritage-rag-guide))를 Tool 로 재사용합니다.
-
-> SSAFY AI 코어 프로젝트 3회차 (개인). 현재는 **뼈대 단계**입니다 — 공통 계층과 테스트는 동작하고, 외부 API 응답 매핑과 LLM 연결은 1~2일차에 채웁니다.
-
-```
-나  : 토요일 서울에서 KTX로 경주 당일치기. 국보 2곳, 관광지 1곳, 점심은 한식, 오후에 카페, 밤 9시 전 서울 도착.
-Agent: 08:00 서울역 KTX → 10:05 신경주
-       10:55 석굴암 · 12:10 불국사 · 13:00 점심 · 14:00 황리단길 · 15:30 카페
-       18:30 신경주 KTX → 20:40 서울   (곳당 최대 체류시간 역산, 제외한 장소와 사유 표시)
-```
-(예시 화면이며 실제 시각은 API 로 확인합니다.)
-
-### 구조
-
-```
-backend/
-  config.py            키는 .env 에서만 읽음 (NF3001)
-  tools/               Tool 11개 + 공통 계약(base.py) + 외부 호출(http.py)
-  domain/              통합 장소 형식(place.py) · 판정 엔진(constraints.py, 코드로 판정)
-  agent/               LangGraph 상태·노드·그래프·실행기
-  events/bus.py        실행 이벤트 발행 (구독자에 의존하지 않음)
-  logging_agent/       이벤트 구독 → 실행 로그 저장 (LLM 미사용)
-  store/db.py          SQLite: 여행 계획 · 실행 로그 (로그 수정 함수 없음)
-  api/                 FastAPI: /api/chat · /api/plans · /api/logs · /api/status
-frontend/index.html    대화 화면 + 계획 관리 화면
-docs/                  요구사항 정의서 · Agent 설계 · Tool 정의서(자동 생성)
-tests/                 외부 API 없이 도는 테스트
-```
-
-### 실행
-
-```bash
-python -m venv .venv
-```
-```bash
-source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
 ```
 ```bash
 pip install -r requirements-dev.txt
@@ -62,51 +20,56 @@ pip install -r requirements-dev.txt
 cp .env.example .env
 ```
 ```bash
-uvicorn backend.api.main:app --reload
+cd fridge_agent && python app.py
 ```
-http://localhost:8000 에서 화면을 엽니다. 키가 없어도 서버는 뜨고, 화면 상단에 설정되지 않은 키가 표시됩니다.
+
+`http://127.0.0.1:8000`에서 `추가 두부, 계란`을 입력하면 키 없이도 첫 추천이 나옵니다. `.env`에 `GMS_KEY`를 넣으면 자연어 요청을 모델이 해석하고, 계획을 세우고, 답변 문장을 씁니다.
 
 ```bash
 python -m pytest
 ```
-```bash
-python scripts/gen_tool_spec.py
+
+## Agent 흐름
+
 ```
-```bash
-python -m backend.agent.graph
+분석(모델: 자연어 → 조건)  →  계획(규칙 핵심 작업 + 모델이 고른 보조 도구, 구조화 출력 Plan)
+  →  실행(Worker, 코드)  →  판정(재고·기한·부족 g·시간, 코드)  ⟲ 재계획(최대 3회)
+  →  검증(로깅 Agent 이벤트로 이상 징후)  →  응답(모델: 확인된 값만으로 문장)
 ```
-(테스트 / Tool 정의서 생성 / 그래프 구조 출력)
 
-### API 키 발급
+예: “김치찌개 먹고 싶은데 뭐 사야 해?”
+1. 모델이 `레시피 김치찌개`로 해석합니다.
+2. Planner가 `kr_recipe → naver($부족재료)` 순서를 계획합니다.
+3. 코드가 레시피 재료와 냉장고 재고를 비교해, 없는 재료만 쇼핑 검색에 넘깁니다.
+4. 모델이 그 결과를 요약합니다.
 
-| 키 | 어디서 | 쓰는 곳 |
+모델 호출은 2일차 실습과 같이 `langchain-openai`의 `ChatOpenAI`에 GMS 주소를 넣어 씁니다. 등록되지 않은 도구는 코드가 버리고, 모델이 실패하면 규칙 계획으로 계속 진행합니다. 테스트는 대역 모델(`fridge_agent/fake_llm.py`)로 키 없이 돕니다.
+
+## 구조
+
+```
+fridge_agent/   한끼 앱: FastAPI(app.py) · LangGraph(workflow.py) · Planner/Worker(agent_roles.py)
+                도구 계약(registry.py) · 외부 제공처(food_tools.py, korean_food.py, connections.py)
+                도메인(domain/: 재고·조리·장보기·운동) · 모델 연결(gateway.py) · 문서(docs/)
+backend/        공통 계층: 이벤트 버스 · 로깅 Agent(LLM 미사용) · SQLite 저장소 · 계획/로그 API
+android/        Android 클라이언트 (같은 API 사용)
+tests/          공통 계층 테스트
+```
+
+## 최종 프로젝트 방향
+
+| 영역 | 기능 | 지금 상태 |
 | --- | --- | --- |
-| `DATA_GO_KR_SERVICE_KEY` | 공공데이터포털 회원가입 후 API 마다 활용신청 | TourAPI, TAGO, 기상청, 특일, 관광지 집중률 |
-| `KAKAO_REST_API_KEY` | Kakao Developers 앱 생성 | 카카오 로컬(카페·음식점), 모빌리티 길찾기 |
-| `YOUTUBE_API_KEY` | Google Cloud 프로젝트에서 YouTube Data API v3 사용 설정 | 장소별 영상 |
-| `ODSAY_API_KEY` (선택) | ODsay LAB | 현지 대중교통 상세 |
-| `OPENAI_API_KEY` | OpenAI | LLM |
+| 냉장고 | 재료 분석(소비기한·용량), 먼저 쓸 재료, 냉장고 털이 메뉴 | 구현 |
+| 먹고 싶은 음식 | 필요한 재료 나열 → 없는 재료만 쿠팡·네이버 제품 추천 | 구현(Agent 계획). 네이버 쇼핑 API 종료(2026-07-31)·쿠팡 파트너스 승인 여부에 따라 검색 링크로 대체 |
+| 다이어트 식단 | 목표별 식단 + YouTube·Instagram 최근 인기 레시피 → 필요한 재료 | 일부(영상·해시태그 조회) |
+| 운동 | 목표·부위·숙련도(초보/중급/숙련) 루틴, 카카오맵 헬스장, 나만의 루틴 | 일부(루틴·헬스장) |
+| 생활 기록 | 단백질·물·수면 기록, 부족 영양소 안내, Samsung Health·Google Health Connect | 일부(기록, 연동 실기기 미검증) |
+| 생체 정보 | 인바디·건강검진 수치 해석과 생활 습관 안내 | 예정. 진단이 아닌 참고 정보로만 안내하고, 기준값은 공개 근거로 표시 |
+| 배포 | Google Play 출시 | 예정(AAB 빌드까지 확인) |
 
-### 사용한 외부 API (출처와 이용 조건, NF3007)
+일정: 기획 11/25 → 기획 산출물 12/4 → 설계(V-model: 유스케이스 → 시스템 → 아키텍처/ERD/클래스 → 시퀀스) 및 개발 12/17 → 배포 12/21 → 발표 12/23
 
-| API | 제공 | 이용 조건 · 한도 |
-| --- | --- | --- |
-| [국가유산 검색 오픈API](https://www.khs.go.kr) | 국가유산청 | 키 불필요 |
-| [국문 관광정보 서비스](https://www.data.go.kr/data/15101578/openapi.do) | 한국관광공사 | 공공데이터포털 이용허락범위 |
-| [TAGO 고속버스](https://www.data.go.kr/data/15098522/openapi.do) · [시외버스](https://www.data.go.kr/data/15098541/openapi.do) · [열차](https://www.data.go.kr/data/15098552/openapi.do) | 국토교통부 | 잔여석 정보 없음 |
-| [단기예보](https://www.data.go.kr/data/15084084/openapi.do) · [중기예보](https://www.data.go.kr/data/15059468/openapi.do) | 기상청 | |
-| [특일 정보](https://www.data.go.kr/data/15012690/openapi.do) | 한국천문연구원 | |
-| [관광지 집중률 예측](https://www.data.go.kr/data/15128555/openapi.do) | 한국관광공사 | |
-| [카카오 로컬](https://developers.kakao.com/docs/latest/ko/local/dev-guide) · [카카오모빌리티](https://developers.kakaomobility.com) | 카카오 | 영업시간·평점 미제공 |
-| [YouTube Data API v3](https://developers.google.com/youtube/v3/determine_quota_cost) | Google | 하루 10,000 단위, 검색 1회 100 단위 → 캐시 사용 |
-| Instagram | Meta | 3회차는 해시태그 탐색 링크만(수집 안 함). Graph API 는 비즈니스 계정·앱 등록·7일 30개 해시태그 제한 |
+## 외부 API와 이용 조건
 
-영상과 해시태그는 참고 콘텐츠이며, 운영시간·관람시간 같은 판단 근거는 공공 API 값만 씁니다.
-
-### 진행 상황
-
-[docs/requirements.md](docs/requirements.md) 의 상태 열을 보세요. 1일차 할 일:
-
-- [ ] 공공데이터포털 활용신청 후 TourAPI 경로·소개정보 필드, TAGO 기능명·응답 필드 확인
-- [ ] 카카오·YouTube 키로 실제 호출 확인
-- [ ] 16시 전 도메인 확정 (명세서 1.2절)
+[데이터와 제공처](fridge_agent/docs/data.md)에 출처, 호출 한도, 약관, 라이선스를 정리했습니다. 키는 `.env`에만 두고 커밋하지 않습니다.

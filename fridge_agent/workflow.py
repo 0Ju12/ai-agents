@@ -1,9 +1,12 @@
-"""The graph plans a task list, executes one task per step, checks evidence, then responds."""
+"""계획(규칙 + 모델) → 실행(코드) → 판정(코드) → 검증 → 응답(모델 문장) 그래프."""
 
+import json
+import os
 from typing import TypedDict
 from urllib.parse import quote
 from langgraph.graph import StateGraph, START, END
-from agent_roles import Planner, Worker, REPLAN_LIMIT, assess, diagnose
+from agent_roles import FROM_RECIPE, Planner, Worker, REPLAN_LIMIT, assess, diagnose, missing_from_recipe
+import gateway
 from registry import Task
 from food_tools import ENGLISH
 
@@ -16,9 +19,29 @@ class Flow(TypedDict, total=False):
     results: dict
     candidates: list
     best: list
+    trail: list
 
 
-def execute(command, argument, local, emit, stock=(), events=None):
+ANSWER_PROMPT = (
+    "결과 JSON 을 바탕으로 사용자 요청에 3~4문장 한국어로 답한다. 결과에 있는 값만 쓰고 숫자를 새로 만들지 않는다. "
+    "실패한 조회는 실패했다고 말한다. 의료 진단처럼 말하지 않는다."
+)
+
+
+def answer(request, output, emit):
+    """모델이 결과를 문장으로 정리한다 (실습 step4 의 llm_answer). 판단은 이미 코드가 끝낸 뒤다."""
+    if not request or os.getenv("ANSWER_LLM", "1") != "1" or not gateway.configured():
+        return output
+    try:
+        text = gateway.write("응답", ANSWER_PROMPT, {"request": request, "result": json.dumps(output, ensure_ascii=False, default=str)[:6000]})
+    except (ValueError, OSError):
+        emit("error", "응답 문장", reason="구조화 결과만 반환")
+        return output
+    emit("llm_decision", "응답 문장", method="model", decision="answer", reason="확인된 결과 요약")
+    return {"답변": text[:800], **output}
+
+
+def execute(command, argument, local, emit, stock=(), events=None, request=None):
     events = events if events is not None else []
     if command in {"도움말", "확인"} or command == "검색" and not argument:
         emit("node_start", "응답")
@@ -43,20 +66,33 @@ def execute(command, argument, local, emit, stock=(), events=None):
             reason=reason,
         )
 
+    base_tools = set()
+
     def plan(s):
-        tasks = Planner.tasks(command, argument)
+        tasks, reason = Planner.plan(command, argument, request, emit, stock)
         if command == "검색" and not argument:
             tasks = []
-        declare(tasks, "요청과 입력 조건에 필요한 작업 선택")
-        return {"pending": tasks, "index": 0, "replans": 0, "best": [], "results": {}, "candidates": []}
+        base_tools.update(t.tool for t in Planner.tasks(command, argument))
+        declare(tasks, reason)
+        return {"pending": tasks, "index": 0, "replans": 0, "best": [], "results": {}, "candidates": [], "trail": []}
 
     def perform(s):
-        task = s["pending"][0]
+        task, rest = s["pending"][0], s["pending"][1:]
+        if task.argument == FROM_RECIPE:  # 앞 단계 레시피 결과를 다음 도구 입력으로 (F3007)
+            missing = missing_from_recipe(s["results"].get("kr_recipe"), stock)
+            if not missing:
+                emit("worker_result", task.tool, decision="skip", reason="레시피 결과 없음" if missing is None else "부족한 재료 없음")
+                result = {"ok": True, "data": [], "source": "재고 비교", "안내": "사야 할 재료가 없습니다." if missing == [] else "레시피를 찾지 못해 재료를 비교하지 못했습니다."}
+                return {"pending": rest, "results": {**s["results"], task.tool: result}, "trail": s["trail"] + [{"도구": task.tool, "입력": FROM_RECIPE, "결과": result}], "output": {"tool": task.tool, "decision": "skip"}}
+            expanded = [task.model_copy(update={"argument": name}) for name in missing[:3]]
+            declare(expanded, "레시피 재료 중 재고에 없는 재료로 입력 확정")
+            task, rest = expanded[0], expanded[1:] + rest
         report = worker.perform(task)
         results = {**s["results"], task.tool: report.result}
         return {
-            "pending": s["pending"][1:],
+            "pending": rest,
             "results": results,
+            "trail": s["trail"] + [{"도구": task.tool, "입력": task.argument, "결과": report.result}],
             "output": {"tool": task.tool, "decision": report.decision},
         }
 
@@ -122,6 +158,13 @@ def execute(command, argument, local, emit, stock=(), events=None):
         return {}
 
     def respond(s):
+        out = compose(s)["output"]
+        extra = [x for x in s.get("trail", []) if x["도구"] not in base_tools]
+        if extra and isinstance(out, dict):
+            out = {**out, "추가 조회": extra}
+        return {"output": answer(request, out, emit)}
+
+    def compose(s):
         results = s["results"]
         if not results:
             message = {

@@ -33,7 +33,7 @@ from domain.catalog import canonical, SUBSTITUTES
 from domain.kitchen import add_lot, add_text, cook, eat, inventory, leftovers, suggest
 from domain.shopping import add_shortages, comparable
 from domain.training import GOALS, LEVELS, MOVES, routine
-from interpretation import parse
+from interpretation import COMMANDS, parse
 from journal import summary, weekly
 from oauth_calendar import router as oauth_router
 from registry import definitions
@@ -435,7 +435,10 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
     snap = snapshot(state)
     if command == "헬스장" and not arg:
         arg = state.get("area") or ""
-    result = execute(command, arg, lambda: snap["계획"], emit, snap["냉장고"], steps)
+    natural = message.strip().partition(" ")[0] not in COMMANDS  # 명령어가 아니면 모델이 계획·응답에 참여
+    result = execute(
+        command, arg, lambda: snap["계획"], emit, snap["냉장고"], steps, request=message if natural else None
+    )
     if command == "레시피" and result.get("조회", {}).get("ok"):
         state["external_recipes"] = {str(x["id"]): x for x in result["조회"]["data"] if x.get("id")}
     if command == "쇼핑":

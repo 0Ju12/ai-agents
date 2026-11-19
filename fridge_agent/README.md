@@ -34,7 +34,7 @@ python app.py
 
 Planner가 필요한 작업을 만들고 Worker가 도구를 순서대로 실행한다. 독립 로깅 Agent가 노드·도구·결정·오류·재계획을 저장하고 검사한다. 식재료 판단에는 USDA 식품 기준 25개, 직접 구성한 레시피 16개와 wger 운동 참조 8개를 SQLite에 적재한다.
 
-`GMS_KEY`와 발급 계정에 허용된 `GMS_MODEL`을 서버의 .env에 설정하면 자유 문장과 조건부 Worker/Logger 모델 경로가 열린다. 예를 들어 “냉장고에 두부와 달걀이 있어. 20분 안에 뭘 먹을까?”처럼 요청한다. 명시한 시간과 재고만 변경한다. 식품안전나라 COOKRCP01와 공공데이터포털의 식약처 식품영양성분 키는 각각 `FOODSAFETY_API_KEY`, `DATA_GO_KR_SERVICE_KEY`다. 쇼핑·지도·영상·캘린더·RAG까지 포함한 설정은 [데이터와 제공처](docs/data.md)에 정리했다.
+`GMS_KEY`와 발급 계정에 허용된 `GMS_MODEL`(기본 `gpt-5.4-nano`)을 서버의 .env에 설정하면 자유 문장 해석, Planner 보조 도구 계획, 결과 문장 생성, 조건부 Worker/Logger 모델 경로가 열린다. 모델 호출은 2일차 실습과 같이 `langchain-openai`의 `ChatOpenAI`에 GMS 주소를 `base_url`로 넣어 쓴다. 예: “김치찌개 먹고 싶은데 뭐 사야 해?” → 국내 레시피 조회 → 재고에 없는 재료만 네이버·쿠팡 검색 → 요약 문장. 예를 들어 “냉장고에 두부와 달걀이 있어. 20분 안에 뭘 먹을까?”처럼 요청한다. 명시한 시간과 재고만 변경한다. 식품안전나라 COOKRCP01와 공공데이터포털의 식약처 식품영양성분 키는 각각 `FOODSAFETY_API_KEY`, `DATA_GO_KR_SERVICE_KEY`다. 쇼핑·지도·영상·캘린더·RAG까지 포함한 설정은 [데이터와 제공처](docs/data.md)에 정리했다.
 
 | 한국어 요청 예시 | 동작 |
 |---|---|

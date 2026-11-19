@@ -1,6 +1,11 @@
-fastapi>=0.115,<1
-uvicorn>=0.30,<1
+# 명세서 1.2절 필수 라이브러리 버전 고정 (2일차 실습 requirements 와 같은 버전)
 langgraph==1.2.10
-python-dotenv>=1,<2
-pydantic>=2.7,<3
+langchain-openai==1.4.3
+langchain-core==1.6.0
+openai==2.54.0
+pydantic==2.13.5
+python-dotenv==1.2.3
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+# F3022 RAG (2회차 색인 재사용)
 chromadb==1.5.9

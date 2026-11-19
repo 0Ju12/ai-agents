@@ -171,16 +171,14 @@ def test_logger_and_worker_contract(monkeypatch):
 def test_google_adapter_and_gms_routing(monkeypatch):
     import calendar_adapter as cal
 
+    from fake_llm import FakeChat
+
     monkeypatch.setenv("GMS_KEY", "unit-test-value")
-    got = []
-
-    def transport(url, data, headers, timeout=12):
-        got.append((url, data))
-        return {"choices": [{"message": {"content": json.dumps({"action": "추천", "minutes": 24})}}]}
-
-    monkeypatch.setattr(gateway, "request_json", transport)
-    assert api.run("오늘 쓸 수 있는 시간이 얼마인지 반영해줘")["총 가용 시간"] == 24
-    assert got[0][0].startswith("https://gms.ssafy.io/")
+    FakeChat.calls.clear()
+    monkeypatch.setattr(gateway, "ChatOpenAI", FakeChat.factory(decide={"action": "추천", "minutes": 24}))
+    out = api.run("오늘 쓸 수 있는 시간이 얼마인지 반영해줘")
+    assert out["총 가용 시간"] == 24
+    assert FakeChat.calls[0].kwargs["base_url"].startswith("https://gms.ssafy.io/")
     events = [
         {
             "id": "abc",

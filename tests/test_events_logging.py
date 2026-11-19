@@ -19,10 +19,10 @@ def test_logging_agent_stores_by_session_in_order():
     LoggingAgent(store).attach(bus)
     bus.emit("a", "node_start", "analyze_intent")
     bus.emit("b", "node_start", "analyze_intent")
-    bus.emit("a", "llm_decision", "analyze_intent", decision="plan_trip", reason="여행 표현")
+    bus.emit("a", "llm_decision", "분석", decision="추천", reason="재료 표현")
     logs = store.get_session_logs("a")
     assert [l["type"] for l in logs] == ["node_start", "llm_decision"]
-    assert logs[1]["payload"]["reason"] == "여행 표현"
+    assert logs[1]["payload"]["reason"] == "재료 표현"
     assert {s["session_id"] for s in store.list_sessions()} == {"a", "b"}
     assert store.delete_session_logs("a") == 2 and store.get_session_logs("a") == []
 
