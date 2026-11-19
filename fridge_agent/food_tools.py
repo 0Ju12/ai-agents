@@ -28,10 +28,6 @@ def call(tool, argument):
         from calendar_adapter import calendar
 
         return calendar(tool, argument)
-    if tool == "knowledge":
-        from knowledge import search
-
-        return search(argument)
     if tool == "wger":
         if not argument.isdecimal():
             return {"ok": False, "error": "INVALID_INPUT"}

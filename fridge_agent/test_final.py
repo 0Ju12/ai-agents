@@ -7,7 +7,7 @@ from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 import app as api
-import connections, food_tools, gateway, knowledge
+import connections, food_tools, gateway
 from agent_roles import Worker, assess, diagnose
 from registry import Task
 from storage import KitchenDB, RevisionConflict, today
@@ -17,7 +17,7 @@ from storage import KitchenDB, RevisionConflict, today
 def home(tmp_path, monkeypatch):
     monkeypatch.setenv("FRIDGE_DATA_DIR", str(tmp_path))
     monkeypatch.delenv("FRIDGE_MODE", raising=False)
-    for key in ("GMS_KEY", "GMS_API_KEY", "OPENAI_API_KEY", "GOOGLE_CLIENT_ID", "HERITAGE_RAG_DIR"):
+    for key in ("GMS_KEY", "GMS_API_KEY", "OPENAI_API_KEY", "GOOGLE_CLIENT_ID"):
         monkeypatch.delenv(key, raising=False)
 
 
@@ -189,7 +189,6 @@ def test_google_adapter_and_gms_routing(monkeypatch):
     ]
     monkeypatch.setattr(cal, "google_call", lambda *args, **kw: {"items": events})
     assert cal.calendar("calendar_list", "2026-11-20", "google")["data"][0]["start"] == "17:00"
-    assert knowledge.search("향토 문화")["error"] == "NO_INDEX"
 
 
 def test_provider_mapping_and_recipe_adoption(monkeypatch):
@@ -228,22 +227,6 @@ def test_provider_mapping_and_recipe_adoption(monkeypatch):
     p = api.run("레시피저장", params={"id": "123", "minutes": 7, "grams": {"두부": 80}})["계획"]
     assert p["메뉴"] == "검증 두부 · 내 레시피" and p["예상 kcal"] == 61
     assert "검증 두부 · 내 레시피" in api.state()["메뉴 목록"]
-
-
-def test_chroma_source_round_trip(tmp_path, monkeypatch):
-    chroma = pytest.importorskip("chromadb")
-    path = tmp_path / "chapter2" / "data" / "chroma"
-    c = chroma.PersistentClient(path=str(path)).create_collection("heritage_docs")
-    c.add(
-        ids=["validation:1"],
-        documents=["검증용 근거 문단"],
-        embeddings=[[1.0, 0.0, 0.0]],
-        metadatas=[{"title": "검증 문서", "url": "https://example.org/fixture"}],
-    )
-    monkeypatch.setenv("HERITAGE_RAG_DIR", str(tmp_path / "chapter2"))
-    monkeypatch.setattr(gateway, "configured", lambda: True)
-    monkeypatch.setattr(gateway, "embed", lambda _: [1.0, 0.0, 0.0])
-    assert knowledge.search("검증")["data"][0]["url"] == "https://example.org/fixture"
 
 
 def test_mobile_comma_entry_and_natural_sentence():

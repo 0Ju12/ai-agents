@@ -29,11 +29,10 @@ with sqlite3.connect("fridge.sqlite3") as src, sqlite3.connect("fridge-backup.sq
 
 여러 DB를 같은 시점으로 복구해야 할 때는 새 요청을 잠시 멈춘 상태에서 각 파일을 백업한다. 개인 JSON은 ‘기록 → 내 데이터’에서 내려받는다. 이 기기의 데이터 삭제는 해당 개인 공간에서만 실행된다. 쿠키를 잃으면 새 기기처럼 인식한다. 백업에 실제 건강 데이터 또는 OAuth 토큰이 있으면 접근 권한과 삭제 요청에 대응할 보관 기간을 별도로 정한다.
 
-## Google Calendar와 2회차 색인
+## Google Calendar
 
 Google Cloud에서 Calendar API와 OAuth 웹 앱을 활성화하고 `GOOGLE_REDIRECT_URI=https://운영도메인/api/calendar/callback`을 정확히 등록한다. 계획 화면에서 연결을 누르면 승인 후 개인 저장소에 갱신 토큰이 저장된다. OAuth state와 PKCE는 한 번만 사용할 수 있다. 등록은 서버에 저장된 계획 ID 하나로 수행하고 같은 계획은 같은 이벤트 ID를 써서 중복을 막는다. 일정 조회에 실패하면 일정 충족 여부를 미확인으로 표시한다. 로컬 캘린더와 Google 일정은 서로 자동 이관되지 않는다.
 
-`HERITAGE_RAG_DIR`를 2회차 프로젝트의 루트로 설정한다. 그 아래 `data/chroma/chroma.sqlite3`와 `heritage_docs` 컬렉션, 같은 임베딩 모델의 GMS 접근 권한이 필요하다. 국가유산 해설에 쓰는 자료는 식단 영양 근거와 분리한다. [원본 프로젝트](https://github.com/0Ju12/heritage-rag-guide)
 
 ## Play 출시
 

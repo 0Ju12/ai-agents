@@ -106,3 +106,20 @@ def test_static_types_are_explicit():
     assert client.get("/static/app.js").headers["content-type"].startswith("text/javascript")
     assert client.get("/static/app.css").headers["content-type"].startswith("text/css")
     assert client.get("/static/icons.svg").headers["content-type"].startswith("image/svg+xml")
+
+
+def test_command_words_inside_sentences(tmp_path, monkeypatch):
+    """첫 단어가 명령어와 같은 일반 문장, 단위가 붙은 기록, 내부 오류 문구 비노출."""
+    monkeypatch.setenv("FRIDGE_DATA_DIR", str(tmp_path))
+    client = TestClient(app)
+    send = lambda m: client.post("/api/chat", json={"message": m})
+    assert send("메뉴 추천해줘").status_code == 200  # 메뉴 이름이 아니면 일반 문장으로 다시 해석
+    assert send("물 500ml").json()["오늘 기록"]["water_ml"] == 500
+    assert send("물 한 잔").json()["오늘 기록"]["water_ml"] == 750
+    assert send("수면 7시간 30분").json()["오늘 기록"]["sleep_hours"] == 7.5
+    assert send("목표 다이어트").json()["설정"]["goal"] == "체중 관리"
+    bad = send("수면 일곱시간")
+    assert bad.status_code == 422 and "convert" not in bad.json()["detail"]
+    assert send("시간 0").status_code == 422  # 잘못된 명령은 그대로 알려 준다
+    reply = send("유산균 아침 8시에 알려줘").json()  # '유산'이 국가유산 해설로 새지 않는다
+    assert reply["계획"].get("안내") != "해설"

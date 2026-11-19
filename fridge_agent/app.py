@@ -195,6 +195,32 @@ def import_recipe(state, params):
     state["view_wanted"] = True
 
 
+CUPS = {"한": 1, "반": 0.5, "두": 2, "세": 3, "네": 4, "1": 1, "2": 2, "3": 3, "4": 4}
+GOAL_WORDS = {"다이어트": "체중 관리", "감량": "체중 관리", "살빼기": "체중 관리", "근육": "근력", "벌크업": "근력", "근력운동": "근력", "체력운동": "체력"}
+
+
+def water_amount(text):
+    """'250', '500ml', '0.5L', '한 잔', '두 컵' → mL. 못 읽으면 None."""
+    t = text.replace(" ", "").lower()
+    m = re.fullmatch(r"(\d+(?:\.\d+)?)(ml|미리|밀리리터|cc|l|리터)?", t)
+    if m:
+        value = float(m[1]) * (1000 if m[2] in ("l", "리터") else 1)
+        return int(round(value))
+    m = re.fullmatch(r"(한|반|두|세|네|[1-4])(잔|컵|병)", t)
+    if m:
+        return int(CUPS[m[1]] * (500 if m[2] == "병" else 250))
+    return None
+
+
+def sleep_hours(text):
+    """'7', '7.5', '7시간', '7시간 30분' → 시간. 못 읽으면 None."""
+    t = text.replace(" ", "")
+    m = re.fullmatch(r"(\d{1,2}(?:\.\d+)?)(?:시간)?(?:(\d{1,2})분)?", t)
+    if not m:
+        return None
+    return round(float(m[1]) + (int(m[2]) / 60 if m[2] else 0), 2)
+
+
 def change(state, cmd, arg, params, day, emit):
     daily = state["daily"].setdefault(day, {})
     meals, _ = kitchen_catalog(state)
@@ -244,7 +270,8 @@ def change(state, cmd, arg, params, day, emit):
     elif cmd == "시간":
         update_settings(state, {"minutes": int(arg.removesuffix("분"))})
     elif cmd in {"부위", "목표"}:
-        update_settings(state, {{"부위": "body", "목표": "goal"}[cmd]: arg})
+        value = GOAL_WORDS.get(arg.strip(), arg.strip()) if cmd == "목표" else arg.strip()
+        update_settings(state, {{"부위": "body", "목표": "goal"}[cmd]: value})
     elif cmd == "설정":
         update_settings(state, params)
     elif cmd == "시간대":
@@ -276,13 +303,14 @@ def change(state, cmd, arg, params, day, emit):
         state["out_date"] = day if cmd == "외식" else None
         emit("replan", "식사 일정 변경", reason=cmd)
     elif cmd == "물":
-        if not arg.isdecimal() or not 1 <= int(arg) <= 2000:
-            raise ValueError("물은 1회 1~2000mL로 입력하세요.")
-        daily["water_ml"] = daily.get("water_ml", 0) + int(arg)
+        ml = water_amount(arg)
+        if ml is None or not 1 <= ml <= 2000:
+            raise ValueError("물은 1회 1~2000mL로 입력하세요. 예: 물 250, 물 500ml, 물 한 잔")
+        daily["water_ml"] = daily.get("water_ml", 0) + ml
     elif cmd == "수면":
-        hours = float(arg)
-        if not 0 <= hours <= 24:
-            raise ValueError("수면 시간을 0~24시간으로 입력하세요.")
+        hours = sleep_hours(arg)
+        if hours is None or not 0 <= hours <= 24:
+            raise ValueError("수면 시간을 0~24시간으로 입력하세요. 예: 수면 7, 수면 7시간 30분")
         daily["sleep_hours"] = hours
     elif cmd == "조리":
         match = re.fullmatch(r"(\d+)인분 (\d+)분", arg)
@@ -392,7 +420,7 @@ def snapshot(state):
     }
 
 
-def run(message, db_path=None, session_id="default", params=None, request_id=None):
+def run(message, db_path=None, session_id="default", params=None, request_id=None, natural_only=False):
     params = params or {}
     message = message.strip()
     if not message:
@@ -429,7 +457,7 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
             else previous.get("menu")
         )
         message = follow[message] + " " + topic if topic else "확인 이전 메뉴나 지역을 먼저 알려주세요."
-    intent = parse(message, emit)
+    intent = parse(message, emit, allow_command=not natural_only)
     command, arg = intent.action, intent.argument
     explicit = message.partition(" ")[0] in {"알림추가", "알림삭제", "알림토글", "영양제복용"}
     spoken = None if explicit else reminders.from_text(message)  # '알려줘·알림'이 들어간 문장만
@@ -462,11 +490,19 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
         change(state, command, arg, params, day, emit)
     except (ValueError, TypeError, AttributeError) as exc:
         emit("error", "입력 확인", reason="입력 범위 또는 현재 재고 확인")
+        # "메뉴 추천해줘", "물 마셨어"처럼 첫 단어만 명령어와 같은 문장은 일반 문장으로 다시 해석한다
+        sentence = re.search(r"(해\s*줘|줘|했어|었어|셨어|싶어|할래|하자|할까|뭐|어때|추천|알려|요[.!?]?$|까[.?]?$)", message.partition(" ")[2])
+        if not natural_only and not params and message.partition(" ")[0] in COMMANDS and sentence:
+            try:
+                return run(message, db_path, session_id, params, request_id, natural_only=True)
+            except (ValueError, TypeError, AttributeError):
+                pass
         raise ValueError(
             str(exc)
             if isinstance(exc, ValueError)
             and not isinstance(exc, ValidationError)
             and re.search("[가-힣]", str(exc))
+            and not re.search(r"could not|invalid literal|convert|object|NoneType|Traceback", str(exc))
             else "입력값의 형식이나 범위를 확인하세요."
         ) from exc
     window = state.get("window", {})

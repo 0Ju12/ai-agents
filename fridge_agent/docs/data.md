@@ -27,7 +27,7 @@ USDA ZIP을 받아 `python assets/import_usda.py <zip경로>`로 재생성할 �
 | 유튜브 | YOUTUBE_API_KEY | 최근 30일 후보의 게시 시각과 조회수를 확인해 일평균 조회수로 정렬한다. 검색 표본과 쿼터를 반영한다. [문서](https://developers.google.com/youtube/v3/docs/search/list) |
 | 인스타그램 | IG_USER_ID, IG_ACCESS_TOKEN, META_GRAPH_VERSION | 권한 있는 비즈니스 계정의 해시태그 최근 미디어를 공개 반응 수로 정렬한다. 공개 지표가 없으면 미확인이다. 계정 승인·해시태그 수 제한을 적용한다. [문서](https://developers.facebook.com/docs/instagram-platform/) |
 | 헬스장 | KAKAO_REST_API_KEY | 지역·역 키워드로 장소명과 도로명 주소·지도 링크를 조회한다. [문서](https://developers.kakao.com/docs/latest/ko/local/dev-guide) |
-| GMS | GMS_KEY, GMS_BASE_URL, GMS_MODEL | 서버에서만 사용한다. 교육 계정에 허용된 채팅 모델을 지정한다. 2회차와 같은 임베딩 모델은 RAG_EMBED_MODEL로 지정한다. |
+| GMS | GMS_KEY, GMS_BASE_URL, GMS_MODEL | 서버에서만 사용한다. 교육 계정에 허용된 채팅 모델을 지정한다. |
 | 캘린더 | GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI | Google의 웹 OAuth 앱에 정확히 같은 callback URL을 등록한다. scope는 calendar.events다. 사용자가 승인하면 로컬 대신 자신의 Google 기본 캘린더를 쓴다. [문서](https://developers.google.com/workspace/calendar/api/guides/overview) |
 
 보유 키가 없는 쇼핑·영상·지도 화면은 직접 검색을 제공한다. 검색 링크 자체를 확인된 상품이나 인기 콘텐츠로 집계하지 않는다. 공개 API의 응답과 지연 시간은 시점별로 달라진다. [실제 호출 기록](evidence/live-apis.json)

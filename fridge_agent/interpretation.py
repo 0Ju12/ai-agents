@@ -7,7 +7,7 @@ from domain.training import GOALS, MOVES
 from storage import today
 
 COMMANDS = set(
-    "추가 삭제 시간 부위 목표 추천 물 수면 외식 집밥 메뉴 대체 조리 섭취 요리코치 레시피 식품영양 검색 영양 도움말 입고 포장삭제 설정 운동완료 쇼핑 영상 헬스장 해설 일정조회 일정등록 미국영양 운동자료 건강연동 시간대 주간계획 레시피저장 확인 장바구니담기 구매완료 장바구니삭제 사진식사 데모 영상링크 알림추가 알림삭제 알림토글 영양제복용".split()
+    "추가 삭제 시간 부위 목표 추천 물 수면 외식 집밥 메뉴 대체 조리 섭취 요리코치 레시피 식품영양 검색 영양 도움말 입고 포장삭제 설정 운동완료 쇼핑 영상 헬스장 일정조회 일정등록 미국영양 운동자료 건강연동 시간대 주간계획 레시피저장 확인 장바구니담기 구매완료 장바구니삭제 사진식사 데모 영상링크 알림추가 알림삭제 알림토글 영양제복용".split()
 )
 
 
@@ -27,10 +27,10 @@ class Intent(BaseModel):
     start: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
 
 
-def parse(text, emit):
+def parse(text, emit, allow_command=True):
     command, _, arg = text.strip().partition(" ")
     arg = arg.strip()
-    if command in COMMANDS:
+    if allow_command and command in COMMANDS:
         return Intent(action=command, argument=arg)
     if gateway.configured():
         from pydantic import ValidationError
@@ -38,7 +38,7 @@ def parse(text, emit):
         try:
             obj = gateway.decide(
                 "Planner",
-                "한국어 요청을 해석한다. action은 추천, 검색, 메뉴, 레시피, 식품영양, 해설, 쇼핑, 영상, 헬스장, 외식, 집밥, 확인 중 하나. 재고에 있다고 명시한 재료만 add, 다 쓴 재료만 remove. 질문과 가정은 변경하지 않는다. 명시한 조건만 반환. 필드: action,argument,add,remove,minutes,goal,body,diet,day,start,end,area,budget_krw. 불명확하면 확인과 짧은 질문.",
+                "한국어 요청을 해석한다. action은 추천, 검색, 메뉴, 레시피, 식품영양, 쇼핑, 영상, 헬스장, 외식, 집밥, 확인 중 하나. 재고에 있다고 명시한 재료만 add, 다 쓴 재료만 remove. 질문과 가정은 변경하지 않는다. 명시한 조건만 반환. 필드: action,argument,add,remove,minutes,goal,body,diet,day,start,end,area,budget_krw. 불명확하면 확인과 짧은 질문.",
                 {"text": text, "today": today().isoformat(), "goals": list(GOALS), "body": list(MOVES)},
             )
             intent = Intent.model_validate(obj)
@@ -48,7 +48,6 @@ def parse(text, emit):
                 "메뉴",
                 "레시피",
                 "식품영양",
-                "해설",
                 "쇼핑",
                 "영상",
                 "헬스장",
@@ -90,8 +89,6 @@ def parse(text, emit):
         intent.diet = "단백질 우선"
     if not intent.diet and any(w in text for w in ("채식", "비건")):
         intent.diet = "식물성"
-    if any(x in text for x in ("유산", "유적", "국보", "석굴암", "불국사")):
-        return Intent(action="해설", argument=text)
     if "헬스장" in text:
         return Intent(action="헬스장", argument=text.split("헬스장")[0].strip())
     if "외식" in text and "?" not in text:

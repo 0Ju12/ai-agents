@@ -16,7 +16,6 @@
 | instagram | 외부 | Instagram 최근 해시태그 | 메뉴명 | `[{title,url,published,likes,comments}]` |
 | gyms | 외부 | Kakao 지역 헬스장 | 지역·역명 | `[{id,title,url,address}]` |
 | wger | 외부 | wger 운동 참고자료 | 운동 id | `{id,title,equipment,url,license}` |
-| knowledge | 로컬 벡터 DB + 외부 임베딩 | 2회차 색인 근거 검색 | 질문 | `[{id,title,excerpt,url,distance}]` |
 | calendar_list | 로컬 / 외부 | 지정일 등록 일정 조회 | YYYY-MM-DD | `[{id,title,start,end}]` |
 | calendar_register | 로컬 / 외부 | 저장 계획 일정 등록 | 저장한 계획 id | `{id,title,start,end,day}` |
 | local | 로컬 | 재료·식사·운동 계산 | 현재 조건 | `{메뉴?,안내?,근거?,루틴?}` |

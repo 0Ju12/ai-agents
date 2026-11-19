@@ -4,12 +4,11 @@
 
 | 검증 환경 | 결과 |
 |---|---|
-| Python 3.12, pytest, FastAPI·SQLite·LangGraph | 저장소 전체 테스트 45개 통과. Chroma 시험 색인 테스트도 포함했다. 라이브러리의 anyio deprecation 경고 1건을 기록했다. |
+| Python 3.12, pytest, FastAPI·SQLite·LangGraph | 저장소 전체 테스트 통과. 라이브러리의 anyio deprecation 경고 1건을 기록했다. |
 | Chromium, 모바일 390×844 및 데스크톱 1440×940 | 포장 등록 → 2인분 조리 → 1인분 섭취, 물 추가, 부족분 장바구니, 일정 생성, 실행 이력 화면을 실제로 조작했다. |
 | Android JDK 17, Gradle 8.11.1, Android SDK 36 | assembleDebug, bundleRelease 성공. APK v2 디버그 서명을 확인했고 AAB는 미서명이다. |
 | Docker 서버 | 운영 모드 이미지에서 HTTP로 입고·재조회와 서로 다른 브라우저 쿠키의 기록 분리를 검사했다. |
 | 제공처 인증 경로 | 국내 식품 2종, 네이버, 쿠팡, Kakao, YouTube, Instagram, GMS 모델·Google Calendar OAuth를 시험 응답으로 검사했다. 실제 발급키와 사용자 동의 흐름 재검증이 남는다. |
-| Chroma | 실제 엔진에 2회차 동일 스키마 시험 컬렉션을 만들고 근거 문서·링크 반환을 확인했다. 원본 개인 색인과 실 GMS 임베딩 연결은 사용자 환경에서 확인한다. |
 | 실기기 및 Play | Android 실기기의 Samsung Health/Google Fit 연동·부분 권한·권한 철회, 서명한 AAB 업로드와 심사는 미검증이다. |
 
 ## 외부 API 실호출

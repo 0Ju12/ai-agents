@@ -13,7 +13,6 @@ const errors = {
   MISSING_KEY: "서버에 API 키를 설정하면 조회할 수 있어요.",
   AUTH_FAILED: "인증 권한을 확인해 주세요.",
   NO_RESULT: "검색 결과가 없습니다.",
-  NO_INDEX: "2회차 근거 문서 색인을 연결해 주세요.",
   SOURCE_UNAVAILABLE: "자료 제공처 연결을 확인해 주세요.",
   INVALID_INPUT: "검색어 또는 입력 형식을 확인해 주세요.",
   RATE_LIMIT: "제공처의 호출 한도에 도달했습니다.",

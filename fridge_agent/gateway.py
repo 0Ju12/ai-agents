@@ -1,4 +1,4 @@
-"""모델 연결: 판단·계획·응답은 langchain-openai ChatOpenAI(GMS), RAG 임베딩은 2회차와 같은 HTTP 호출."""
+"""모델 연결: 판단·계획·응답·사진은 langchain-openai ChatOpenAI(GMS). request_json 은 외부 API 공용 HTTP 호출."""
 
 import json
 import os
@@ -130,8 +130,3 @@ def write(role, prompt, obj):
     )
     return str(reply.text).strip()
 
-
-def embed(text):
-    return model_request(
-        "/embeddings", {"model": os.getenv("RAG_EMBED_MODEL", "text-embedding-3-small"), "input": [text]}
-    )["data"][0]["embedding"]
