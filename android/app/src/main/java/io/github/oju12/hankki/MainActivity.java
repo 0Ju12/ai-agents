@@ -8,7 +8,11 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.speech.tts.TextToSpeech;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceError;
 import android.webkit.WebView;
@@ -21,6 +25,9 @@ public class MainActivity extends Activity {
     private WebView web;
     private String origin;
     private static final int READ_HEALTH = 42;
+    private static final int PICK_PHOTO = 43;
+    private ValueCallback<Uri[]> photoCallback;
+    private TextToSpeech tts;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -95,6 +102,28 @@ public class MainActivity extends Activity {
                         .setNegativeButton("서버 설정",(d,w)->setup()).show();
             }
         });
+        // 사진 기록: <input type=file> 을 시스템 사진 선택기로 연다 (카메라 권한 없이 갤러리·카메라 앱 선택).
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (!sameOrigin(Uri.parse(view.getUrl()))) { callback.onReceiveValue(null); return true; }
+                if (photoCallback != null) photoCallback.onReceiveValue(null);
+                photoCallback = callback;
+                try { startActivityForResult(params.createIntent(), PICK_PHOTO); }
+                catch (ActivityNotFoundException e) { photoCallback = null; callback.onReceiveValue(null); show("사진을 고를 앱이 없습니다."); }
+                return true;
+            }
+        });
+        // 조리 모드 음성 안내: WebView 에는 speechSynthesis 가 없어 Android TTS 로 읽는다.
+        tts = new TextToSpeech(this, status -> { if (status == TextToSpeech.SUCCESS) tts.setLanguage(java.util.Locale.KOREAN); });
+        web.addJavascriptInterface(new Object() {
+            @JavascriptInterface public void speak(String text) {
+                runOnUiThread(() -> {
+                    if (web == null || tts == null || text == null || !sameOrigin(Uri.parse(web.getUrl()))) return;
+                    tts.speak(text.length() > 400 ? text.substring(0, 400) : text, TextToSpeech.QUEUE_FLUSH, null, "step");
+                });
+            }
+            @JavascriptInterface public void stop() { runOnUiThread(() -> { if (tts != null) tts.stop(); }); }
+        }, "HankkiVoice");
         web.setOnApplyWindowInsetsListener((v,insets)->{
             if(Build.VERSION.SDK_INT>=30) {
                 android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.systemBars() | android.view.WindowInsets.Type.displayCutout());
@@ -130,5 +159,12 @@ public class MainActivity extends Activity {
                 }).show();
         });
     }
+    @Override protected void onActivityResult(int code, int result, Intent data) {
+        super.onActivityResult(code, result, data);
+        if (code != PICK_PHOTO || photoCallback == null) return;
+        photoCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result, data));
+        photoCallback = null;
+    }
+    @Override protected void onDestroy() { if (tts != null) { tts.shutdown(); tts = null; } super.onDestroy(); }
     @Override public void onBackPressed(){if(web!=null && web.canGoBack()) web.goBack(); else super.onBackPressed();}
 }

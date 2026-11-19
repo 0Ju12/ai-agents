@@ -49,6 +49,9 @@ from storage import (
     today,
 )
 from workflow import execute
+import cook_guide
+import food_tools
+import photos
 
 app = FastAPI(title="한끼 · 냉장고 생활 코치", version="1.0.0")
 app.dependency_overrides[get_store] = local_store
@@ -278,6 +281,26 @@ def change(state, cmd, arg, params, day, emit):
         state["view_wanted"] = False
     elif cmd == "섭취":
         eat(state, arg, daily)
+    elif cmd == "사진식사":
+        items = params.get("items")
+        if not isinstance(items, list) or not 1 <= len(items) <= 15:
+            raise ValueError("확인한 음식을 1~15개 선택하세요.")
+        checked = []
+        for x in items:
+            name, grams = canonical(str(x.get("name", ""))), float(x.get("grams") or 0)
+            if not 1 <= len(name) <= 40 or not 1 <= grams <= 3000:
+                raise ValueError("음식 이름과 1~3000g 사이의 양을 확인하세요.")
+            checked.append({"name": name, "grams": grams})
+        facts = photos.nutrition(checked, kitchen_catalog(state)[1])
+        daily.setdefault("eaten", []).append(" · ".join(x["name"] for x in checked))
+        daily.setdefault("intake", []).append(
+            {
+                "title": "사진 기록 · " + ", ".join(x["name"] for x in checked),
+                "nutrients": facts["합계"] or {},
+                "source": "사진 후보를 사용자가 확인 · " + facts["출처"],
+                "unverified": facts["미확인"],
+            }
+        )
     elif cmd == "건강연동":
         health_import(daily, params, day)
     elif cmd == "운동완료":
@@ -520,6 +543,84 @@ def recipes(session_id: str = "default"):
         "ingredients": list(refs.values()),
         "exercises": json.loads((HERE / "assets" / "training.json").read_text()),
     }
+
+
+def tracer(session_id):
+    """채팅 밖 기능(사진·조리 모드)도 같은 로깅 Agent 로 실행 이벤트를 남긴다."""
+    bus, steps, run_id = EventBus(), [], uuid4().hex
+    LoggingAgent(local_store()).attach(bus)
+    bus.subscribe(lambda event: steps.append(event.to_dict()))
+    return (lambda kind, label, **p: bus.emit(session_id, kind, label, run_id=run_id, **p)), steps
+
+
+class GuideRequest(BaseModel):
+    session_id: str = Field(default="default", min_length=1, max_length=80)
+    title: str | None = Field(default=None, max_length=80)
+    recipe_id: str | None = Field(default=None, max_length=40)
+    servings: int = Field(default=1, ge=1, le=20)
+
+
+@app.post("/api/guide")
+def guide(body: GuideRequest):
+    """조리 모드 단계 카드. 내 레시피 목록(title) 또는 조회한 국내 레시피(recipe_id)."""
+    state = KitchenDB().read(body.session_id)[1]
+    emit, steps = tracer(body.session_id)
+    emit("node_start", "조리 가이드")
+    stock = snapshot(state)["냉장고"]
+    try:
+        if body.recipe_id:
+            row = state.get("external_recipes", {}).get(body.recipe_id)
+            if not row:
+                raise ValueError("국내 레시피를 먼저 조회하세요.")
+            result = cook_guide.build(
+                row["메뉴"], row.get("조리 순서", []), raw_ingredients=row.get("재료·분량"),
+                photos=row.get("단계 사진"), servings=body.servings, stock=stock,
+                source="식품안전나라 COOKRCP01 #" + str(row["id"]), emit=emit,
+            )
+            result["대표 사진"] = row.get("대표 사진")
+        else:
+            meal = kitchen_catalog(state)[0].get(body.title or "")
+            if not meal:
+                raise ValueError("레시피 목록에서 메뉴를 선택하세요.")
+            result = cook_guide.build(
+                meal["title"], meal["steps"], grams=meal["grams"], servings=body.servings,
+                stock=stock, source=meal.get("source", ""), emit=emit,
+            )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    emit("node_end", "조리 가이드")
+    return {**result, "추적": steps}
+
+
+class PhotoRequest(BaseModel):
+    session_id: str = Field(default="default", min_length=1, max_length=80)
+    kind: str = Field(pattern="^(meal|fridge)$")
+    image: str = Field(min_length=100, max_length=7_000_000)
+
+
+@app.post("/api/photo")
+def photo(body: PhotoRequest):
+    """식사·냉장고 사진 → 후보 목록. 저장은 사용자가 확인한 뒤 /api/chat 의 사진식사·입고로 한다."""
+    state = KitchenDB().read(body.session_id)[1]
+    emit, steps = tracer(body.session_id)
+    emit("node_start", "사진 분석")
+    try:
+        result = photos.analyze(body.kind, body.image, kitchen_catalog(state)[1], snapshot(state)["냉장고"], emit)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    emit("node_end", "사진 분석")
+    return {**result, "추적": steps}
+
+
+@app.get("/api/barcode/{code}")
+def barcode(code: str):
+    """바코드 → 제품명·표시 영양 (Open Food Facts). 냉장고 등록 양식을 미리 채우는 데 쓴다."""
+    if not re.fullmatch(r"\d{8,14}", code):
+        raise HTTPException(422, "바코드 숫자 8~14자리를 확인하세요.")
+    try:
+        return food_tools.call("nutrition", code)
+    except (OSError, ValueError, KeyError, TypeError):
+        return {"ok": False, "error": "SOURCE_UNAVAILABLE"}
 
 
 @app.get("/api/export")

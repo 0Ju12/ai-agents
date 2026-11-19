@@ -13,6 +13,16 @@ NUTRITION = "https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo02/getFoodNtrCpntD
 SOURCES = {"kr_recipe": "식품안전나라 COOKRCP01", "kr_nutrition": "식약처 식품영양성분DB정보"}
 
 
+def secure(url):
+    """식품안전나라 이미지 주소만 https 로 받는다. 다른 주소나 빈 값은 None."""
+    url = (url or "").strip()
+    if not url:
+        return None
+    url = "https://" + url.split("://", 1)[1] if url.startswith("http://") else url
+    host = url.split("/")[2] if url.startswith("https://") and url.count("/") >= 3 else ""
+    return url if host.endswith("foodsafetykorea.go.kr") else None
+
+
 def fetch(tool, term, read):
     if tool == "kr_recipe":
         key = os.getenv("FOODSAFETY_API_KEY")
@@ -34,6 +44,13 @@ def fetch(tool, term, read):
                     for i in range(1, 21)
                     if (r.get(f"MANUAL{i:02}") or "").strip()
                 ],
+                # 조리 순서와 같은 길이 · 같은 순서의 단계 사진 (없으면 None)
+                "단계 사진": [
+                    secure(r.get(f"MANUAL_IMG{i:02}"))
+                    for i in range(1, 21)
+                    if (r.get(f"MANUAL{i:02}") or "").strip()
+                ],
+                "대표 사진": secure(r.get("ATT_FILE_NO_MK") or r.get("ATT_FILE_NO_MAIN")),
             }
             for r in block.get("row", [])
             if r.get("RCP_NM")

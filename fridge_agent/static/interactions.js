@@ -100,7 +100,7 @@ function mealDetail(p) {
        `<div class="list-line"><strong>${esc(name)} · ${fmt(g)}g</strong>${need[name] ? btn(fmt(need[name]) + "g 장보기", "shopping", "chip", "shopping-bag", name) : pill(unknown.includes(name) ? "용량 확인" : "보유", unknown.includes(name))}</div>`,
    )
    .join("")}
- <h3 class="guide-head">조리 순서</h3><ol class="step-list">${(p["조리 단계"] || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ol><div class="btnbar">${Object.keys(need).length ? btn("부족분 장바구니에 담기", "toCart", "btn", "shopping-bag") : btn("조리 기록", "cook", "btn", "cooking-pot")}${btn("영상 레시피", "videos", "btn alt", "circle-play", p["메뉴"])}${btn("일정 저장", "plans", "btn alt", "calendar-days")}</div>
+ <h3 class="guide-head">조리 순서</h3><ol class="step-list">${(p["조리 단계"] || []).map((t) => `<li>${esc(t)}</li>`).join("")}</ol><div class="btnbar">${btn("조리 모드", "cookMode", "btn", "timer", p["메뉴"])}${Object.keys(need).length ? btn("부족분 장바구니에 담기", "toCart", "btn alt", "shopping-bag") : btn("조리 기록", "cook", "btn alt", "cooking-pot")}${btn("영상 레시피", "videos", "btn alt", "circle-play", p["메뉴"])}${btn("일정 저장", "plans", "btn alt", "calendar-days")}</div>
  ${p["시간대"] ? `<p class="hint">${typed(p["시간대"])}</p>` : ""}${excluded(p)}<details><summary>영양 추정 근거</summary><p class="hint">${esc(p["근거"])} · 원물 기준 100g의 영양성분을 사용량에 맞춰 합산했어요. 제품과 조리법에 따라 달라질 수 있어요.</p>${(p["영양 출처"] || []).map((x) => a(x["재료"], x.url)).join(" · ")}</details>`;
 }
 function excluded(p) {
@@ -134,7 +134,7 @@ function showResult(msg, r) {
       (msg.startsWith("레시피 ") && p["조회"].ok
         ? p["조회"].data
             .filter((x) => x.id && x["조리 순서"]?.length)
-            .map((x) => btn(x["메뉴"] + " 내 식단에 담기", "importRecipe", "chip", "plus", x.id))
+            .map((x) => btn(x["메뉴"] + " 조리 모드", "cookModeExt", "chip", "timer", x.id) + btn(x["메뉴"] + " 내 식단에 담기", "importRecipe", "chip", "plus", x.id))
             .join("")
         : "") +
       (p["안내"] ? `<p>${esc(p["안내"])}</p>` : "");
@@ -401,7 +401,7 @@ function demoRecipe(title) {
       .map(([n, g]) => esc(n) + " " + g + "g")
       .join(
         " · ",
-      )}</p><ol class="step-list">${m.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol><div class="btnbar">${btn("내 재료와 비교", "choose", "btn", "refrigerator", title)}${btn("영상 레시피", "videos", "btn alt", "circle-play", title)}</div>`,
+      )}</p><ol class="step-list">${m.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ol><div class="btnbar">${btn("조리 모드", "cookMode", "btn", "timer", title)}${btn("내 재료와 비교", "choose", "btn alt", "refrigerator", title)}${btn("영상 레시피", "videos", "btn alt", "circle-play", title)}</div>`,
   );
 }
 const forms = {

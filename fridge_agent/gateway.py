@@ -108,6 +108,20 @@ def structured(role, prompt, obj, schema):
     return result
 
 
+def see(role, prompt, image_url, schema):
+    """사진(data URL) 한 장을 보고 schema 양식을 채운다. 사진은 저장하지 않고 이 호출에만 쓴다."""
+    from langchain_core.messages import HumanMessage, SystemMessage
+
+    messages = [
+        SystemMessage(_system(role, prompt)),
+        HumanMessage(content=[{"type": "text", "text": "사진을 분석해 양식을 채워라."}, {"type": "image_url", "image_url": {"url": image_url}}]),
+    ]
+    result = _invoke(lambda: chat_model().with_structured_output(schema), messages)
+    if not isinstance(result, schema):
+        raise ValueError("모델 응답 형식 오류")
+    return result
+
+
 def write(role, prompt, obj):
     """사용자에게 보여 줄 문장 생성 (응답 단계 전용)."""
     reply = _invoke(

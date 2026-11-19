@@ -59,3 +59,15 @@ Planner가 필요한 작업을 만들고 Worker가 도구를 순서대로 실행
 저장소 루트에서 `python -m pip install -r requirements-dev.txt` 후 `python -m pytest`로 테스트한다. `python fridge_agent/validate.py --live`는 공개 API 실호출과 임시 가구에서의 고정 시나리오를 재실행해 증거를 갱신한다. 브라우저 검증은 `pip install playwright pillow` 후 `playwright install chromium`, 이어서 `python fridge_agent/system_check.py`로 실행한다. 이미 설치된 Chromium은 `--chromium /usr/bin/chromium`으로 지정한다. `--screens <디렉터리>`를 주면 실제 실행 화면을 저장한다.
 
 실제 GMS 응답, 인증이 필요한 국내·쇼핑·콘텐츠 제공처, 실기기 건강 권한, 실제 Google 캘린더, Play 출시 상태는 [검증 범위](docs/validation.md)에서 확인할 수 있다.
+
+## 조리 모드 · 사진 기록
+
+| 기능 | 동작 | 판단 근거 |
+| --- | --- | --- |
+| 조리 모드 | 레시피를 단계 카드로 보여 줍니다. 단계마다 사진(식품안전나라 조리 과정 사진) 또는 재료 아이콘 애니메이션(넣기·볶기·끓이기·찌기·굽기·섞기·썰기), 그 단계의 재료와 g, 타이머, 음성 안내가 나옵니다. | 동작·시간·불 세기는 원문 문장에서 규칙으로 찾고, 모델은 빠진 동작·재료만 보충합니다. 레시피 재료 목록에 없는 재료나 원문에 없는 시간은 코드가 버립니다. 분량은 1인분 g × 인분입니다. |
+| 식사 사진 | 사진 → 음식 후보와 대략적인 g → 사용자가 확인 → `사진식사`로 섭취 기록 | 열량·단백질은 사진에서 추정하지 않고, 확인한 이름 × g 에 USDA 100g 참조값을 곱합니다. 참조가 없는 음식은 비워 둡니다. |
+| 냉장고 사진 | 사진 → 재료 후보 → 선택한 재료만 `입고` | 중량·기한은 사용자가 입력합니다. |
+| 바코드 | 브라우저 BarcodeDetector로 인식하거나 숫자 입력 → Open Food Facts 제품명으로 등록 양식 채우기 | 지원하지 않는 기기는 숫자를 직접 입력합니다. |
+
+API: `POST /api/guide`(조리 단계), `POST /api/photo`(사진 후보), `GET /api/barcode/{code}`. 사진은 저장하지 않습니다. Android는 시스템 사진 선택기(`onShowFileChooser`)와 TTS(`HankkiVoice`)로 연결했습니다.
+

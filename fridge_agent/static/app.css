@@ -1048,3 +1048,48 @@ dialog::backdrop {
     display: none;
   }
 }
+
+/* ── 조리 모드 ───────────────────────────── */
+.cook { display: grid; gap: 12px; }
+.cook-progress { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.cook-progress i { display: block; height: 100%; background: var(--green); transition: width 0.3s; }
+.cook-text { font-size: 1.15rem; line-height: 1.6; margin: 0; }
+.cook-photo { margin: 0; border-radius: 16px; overflow: hidden; background: var(--line); }
+.cook-photo img { display: block; width: 100%; max-height: 320px; object-fit: cover; }
+.cook-photo figcaption { font-size: 12px; color: var(--muted); padding: 4px 10px; }
+.cook-photo.broken img { display: none; }
+.cook-photo.broken::before { content: "사진을 불러오지 못했어요"; display: block; padding: 40px 12px; text-align: center; color: var(--muted); }
+.cook-stage { position: relative; height: 210px; border-radius: 16px; background: linear-gradient(#fbfbf5, var(--lime)); overflow: hidden; }
+.cook-vessel { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 84px; line-height: 1; }
+.cook-items { position: absolute; inset: 0; display: flex; justify-content: center; gap: 10px; padding-top: 18px; font-size: 40px; }
+.cook-items span { display: inline-block; animation-delay: calc(var(--i) * 0.35s); }
+.cook-fx { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); display: flex; gap: 10px; opacity: 0; }
+.cook-fx i { width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 2px #cfe0bf; animation: bubble 1.4s infinite ease-in; }
+.cook-fx i:nth-child(2) { animation-delay: 0.4s; } .cook-fx i:nth-child(3) { animation-delay: 0.8s; }
+/* 넣기 · 데치기: 재료가 그릇 안으로 떨어진다 */
+.anim-drop .cook-items span, .anim-blanch .cook-items span { animation: drop 2.4s infinite cubic-bezier(.5,0,.75,0); }
+/* 볶기 · 굽기: 팬이 흔들리고 재료가 튄다 */
+.anim-stir .cook-vessel, .anim-grill .cook-vessel { animation: toss 0.9s infinite ease-in-out; }
+.anim-stir .cook-items span, .anim-grill .cook-items span { animation: hop 0.9s infinite ease-in-out; padding-top: 70px; }
+/* 끓이기 · 찌기: 김과 기포 */
+.anim-boil .cook-fx, .anim-steam .cook-fx, .anim-blanch .cook-fx { opacity: 1; }
+.anim-boil .cook-items span, .anim-steam .cook-items span { animation: bob 2s infinite ease-in-out; padding-top: 60px; }
+/* 섞기: 재료가 원을 그린다 */
+.anim-mix .cook-items span { animation: swirl 2.2s infinite linear; padding-top: 70px; }
+/* 썰기: 칼질 */
+.anim-chop .cook-vessel { animation: chop 0.6s infinite ease-in-out; font-size: 64px; }
+.anim-chop .cook-items span { padding-top: 90px; animation: split 1.2s infinite steps(2); }
+@keyframes drop { 0% { transform: translateY(-60px); opacity: 0; } 25% { opacity: 1; } 70% { transform: translateY(110px) scale(0.8); opacity: 1; } 100% { transform: translateY(120px) scale(0.6); opacity: 0; } }
+@keyframes toss { 0%,100% { transform: translateX(-50%) rotate(0); } 50% { transform: translateX(-50%) rotate(-12deg); } }
+@keyframes hop { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-28px) rotate(20deg); } }
+@keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(8px); } }
+@keyframes bubble { 0% { transform: translateY(0); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(-80px); opacity: 0; } }
+@keyframes swirl { from { transform: rotate(0) translateX(26px) rotate(0); } to { transform: rotate(360deg) translateX(26px) rotate(-360deg); } }
+@keyframes chop { 0%,100% { transform: translateX(-50%) translateY(-30px) rotate(-20deg); } 50% { transform: translateX(-50%) translateY(10px) rotate(0); } }
+@keyframes split { 0% { letter-spacing: 0; transform: scale(1); } 100% { transform: scale(0.85); } }
+@media (prefers-reduced-motion: reduce) { .cook-stage * { animation: none !important; } }
+.cook-timer { display: flex; align-items: center; gap: 12px; }
+.cook-timer b { font-size: 2rem; font-variant-numeric: tabular-nums; }
+.cook-nav { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 8px; }
+.list-line .check { display: flex; align-items: center; gap: 6px; flex: 1; }
+.list-line .grams { width: 90px; }

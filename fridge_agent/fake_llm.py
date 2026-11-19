@@ -34,7 +34,10 @@ class FakeChat:
 
     def invoke(self, messages):
         if self._mode == "structured":
-            return self._schema.model_validate(self._plan or {})
+            script = self._plan or {}
+            # 양식 이름(Plan, GuideDraft, Sight …)으로 응답을 나눠 둘 수 있다
+            script = script.get(self._schema.__name__, script) if self._schema.__name__ in script else script
+            return self._schema.model_validate(script)
         if self._mode == "json":
             return SimpleNamespace(text=json.dumps(self._decide, ensure_ascii=False))
         return SimpleNamespace(text=self._answer)

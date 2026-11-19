@@ -189,7 +189,7 @@ function pantryView() {
   let items = [...st["포장"]].sort((a, b) => (a.expires || "9999").localeCompare(b.expires || "9999"));
   return (
     heading("pantry", "포장에 적힌 소비기한 순서로 먼저 쓸 재료를 확인해요.") +
-    `<div class="panelgrid wideleft"><section class="card"><div class="section-head"><h2>보관 중인 재료 <small>${items.length}</small></h2>${btn("재료 추가", "lot", "btn", "plus")}</div>
+    `<div class="panelgrid wideleft"><section class="card"><div class="section-head"><h2>보관 중인 재료 <small>${items.length}</small></h2></div><div class="btnbar">${btn("재료 추가", "lot", "btn", "plus")}${btn("사진으로", "photoFridge", "btn alt", "camera")}${btn("바코드", "barcode", "btn alt", "scan-barcode")}</div>
  ${items.length ? items.map((l) => `<div class="list-line"><div><strong>${esc(l.item)}</strong><small>${l.grams == null ? "용량 미입력" : fmt(l.grams) + " g"} · ${esc(l.expires || "날짜 미입력")}</small></div>${pill(...expiry(l.expires))}${btn("삭제", "remove", "linkbtn", "", l.id)}</div>`).join("") : '<p class="empty">냉장고가 비어 있어요. 달걀이나 두부처럼 지금 있는 재료 하나부터 등록해 보세요.</p>'}
  </section><div class="stack"><section class="card soft">${section("재료로 만들 수 있는 메뉴")}<p class="plan-name">${esc(st["계획"]["메뉴"] || st["계획"]["안내"] || "남은 음식부터")}</p><div class="actions">${btn("식단 확인", "meal", "btn", "utensils")}</div></section><section class="card">${section("장바구니")}${cartRows()}</section><section class="card">${section("조리해 둔 음식")}${leftoverRows()}</section></div></div>`
   );
@@ -232,7 +232,7 @@ function recipeList(term) {
     rows
       .map(
         (m) =>
-          `<div class="list-line"><div><strong>${esc(m.title)}</strong><small>${fmt(m.minutes)}분 · ${esc(Object.keys(m.grams).join(", "))}</small></div>${btn("선택", "choose", "chip", "", m.title)}</div>`,
+          `<div class="list-line"><div><strong>${esc(m.title)}</strong><small>${fmt(m.minutes)}분 · ${esc(Object.keys(m.grams).join(", "))}</small></div><div class="btnbar">${btn("조리 모드", "cookMode", "chip", "timer", m.title)}${btn("선택", "choose", "chip", "", m.title)}</div></div>`,
       )
       .join("") || '<p class="empty">등록된 메뉴가 없습니다. 국내 레시피 조회에서 찾아보세요.</p>'
   );
@@ -266,7 +266,7 @@ function journalView() {
     max = Math.max(...w.map((x) => x.totals.water_ml.value || 0), 1);
   return (
     heading("journal", "직접 기록한 값과 연결한 건강 데이터의 출처를 함께 확인해요.") +
-    `<div class="panelgrid"><div class="stack"><section class="card intake">${section("오늘의 섭취와 수면")}${metricRows()}<div class="btnbar">${btn("물 더하기", "water", "btn", "droplet")}${btn("수면 기록", "sleep", "btn alt", "moon")}</div></section><section class="card">${section("이번 주 수분 기록")}<div class="week">${w.map((x) => `<div><small>${fmt(x.totals.water_ml.value)}</small><i style="height:${Math.max(2, (45 * (x.totals.water_ml.value || 0)) / max)}px"></i><small>${x.day.slice(5)}</small></div>`).join("")}</div><p class="hint">단위 mL · 대시는 기록 전</p></section></div>
+    `<div class="panelgrid"><div class="stack"><section class="card intake">${section("오늘의 섭취와 수면")}${metricRows()}<div class="btnbar">${btn("물 더하기", "water", "btn", "droplet")}${btn("수면 기록", "sleep", "btn alt", "moon")}${btn("식사 사진", "photoMeal", "btn alt", "camera")}</div></section><section class="card">${section("이번 주 수분 기록")}<div class="week">${w.map((x) => `<div><small>${fmt(x.totals.water_ml.value)}</small><i style="height:${Math.max(2, (45 * (x.totals.water_ml.value || 0)) / max)}px"></i><small>${x.day.slice(5)}</small></div>`).join("")}</div><p class="hint">단위 mL · 대시는 기록 전</p></section></div>
  <div class="stack"><section class="card soft">${section("나의 영양 목표", "settings", "설정")}${j.hints.length ? j.hints.map((h) => `<p><strong>${esc(h.label)}</strong> · 목표까지 ${fmt(h.remaining)}${h.label === "수분" ? "mL" : "g"}</p><p class="muted">${esc(h.advice)}</p>`).join("") : '<p class="muted">목표와 섭취량을 기록하면 남은 양을 계산해요.</p>'}</section><section class="card">${section("조리시간 분석")}<div class="facts"><div class="fact"><small>조리 횟수</small><b>${j.metrics.cooks}<span>회</span></b></div><div class="fact"><small>평균 오차</small><b>${fmt(j.metrics.planned_vs_actual_mae_min)}<span>분</span></b></div></div><p class="hint">메뉴별 최근 조리 기록 5건을 다음 예상 시간에 반영해요.</p></section><section class="card">${section("데이터 관리")}<div class="btnbar">${btn("건강 데이터 연결", "health", "btn alt", "heart-pulse")}${btn("계획과 일정", "plans", "btn alt", "calendar-days")}${btn("실행 이력", "logs", "btn alt", "notebook-text")}</div><p class="footnote">일상 생활을 위한 참고 정보입니다. 개인의 치료나 섭취 처방은 의료진과 상의하세요.</p><details><summary>내 데이터</summary><div class="btnbar"><a href="/api/export" download="hankki.json" class="chip">내 데이터 내려받기</a>${btn("기록 삭제", "erase", "chip danger")}<a href="/privacy" class="chip">개인정보 안내</a></div></details></section></div></div>`
   );
 }
