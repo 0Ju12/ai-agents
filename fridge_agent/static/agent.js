@@ -70,11 +70,38 @@ function chipsFor() {
   ];
 }
 
+// 답변 주제에 따라 다른 전문가 캐릭터가 답한다. 기본은 한끼 고유 일러스트(실존 인물·영화 캐릭터 아님),
+// static/personas/ 에 사용 권리가 있는 이미지를 넣으면 그 이미지를 쓴다.
+const PERSONAS = {
+  chef: {
+    name: "한끼 셰프",
+    title: "요리 전문 코치",
+    svg: `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="#eef0ee"/><rect x="27.5" y="38" width="9" height="8" fill="#e6bf9f"/><path d="M5 64c1-12 9-19 27-19s26 7 27 19z" fill="#3a3b3f"/><path d="M23.5 44.5c2 3.5 5 5 8.5 5s6.5-1.5 8.5-5v-2.5h-17z" fill="#2c2d31"/><path d="M29.2 44.6l2.8 5.4 2.8-5.4z" fill="#e6bf9f"/><path d="M32 50v14" stroke="#29292c" stroke-width=".8"/><path d="M10 64c2-5 9-9 22-9s20 4 22 9z" fill="#4a4b50"/><path d="M14 60c5-3 11-4 18-4" stroke="#3a3b3f" stroke-width="1.2" fill="none"/><ellipse cx="44" cy="58" rx="3.6" ry="2.3" fill="#ecc3a3"/><ellipse cx="21.6" cy="30" rx="1.7" ry="2.7" fill="#e6bf9f"/><ellipse cx="42.4" cy="30" rx="1.7" ry="2.7" fill="#e6bf9f"/><ellipse cx="32" cy="29" rx="10" ry="12" fill="#f0cfb2"/><path d="M21.8 28c-1.6-9.6 4.4-15 11.2-15 7.8 0 12.2 5.2 10.4 14-.8-3.4-2-5.4-3.6-6.6-3.6 1.6-9.2 1.4-13.4-.6-2.4 1.6-3.8 4.2-4.6 8.2z" fill="#16181b"/><path d="M30.5 13.4c-2.6 1.8-4.2 4.2-4.5 7" stroke="#2b2e33" stroke-width="1" fill="none"/><path d="M25.8 26.2q2.2-1.2 4.4-.4M33.8 25.8q2.2-.8 4.4.4" stroke="#16181b" stroke-width="1.3" fill="none" stroke-linecap="round"/><ellipse cx="28" cy="29.8" rx="1.35" ry="1" fill="#1d1d1f"/><ellipse cx="36" cy="29.8" rx="1.35" ry="1" fill="#1d1d1f"/><path d="M26.4 29.2q1.6-.8 3.2 0M34.4 29.2q1.6-.8 3.2 0" stroke="#c99b7c" stroke-width=".7" fill="none"/><path d="M32 31v3.2" stroke="#d9ab8c" stroke-width="1" stroke-linecap="round"/><path d="M29.4 36.4q2.6 1.1 5.2 0" stroke="#a9654f" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>`,
+  },
+  trainer: {
+    name: "한끼 트레이너",
+    title: "퍼스널 트레이너",
+    svg: `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="#3b3d40"/><rect x="25.5" y="37" width="13" height="9" fill="#cf9570"/><path d="M1 64c1-12 7-19 16-21.5l15 3.5 15-3.5c9 2.5 15 9.5 16 21.5z" fill="#f7f7f5"/><path d="M27.5 44.5l4.5 9 4.5-9z" fill="#cf9570"/><path d="M23.5 43.5l8.5 8-3.6 3.4-7.4-8.6zM40.5 43.5l-8.5 8 3.6 3.4 7.4-8.6z" fill="#fff" stroke="#d8d8d4" stroke-width=".6"/><circle cx="32" cy="58" r=".9" fill="#cfcfca"/><circle cx="32" cy="62" r=".9" fill="#cfcfca"/><path d="M14 50c1 5 1 10 0 14M50 50c-1 5-1 10 0 14" stroke="#e2e2de" stroke-width="1" fill="none"/><ellipse cx="20.3" cy="29" rx="2" ry="3" fill="#cf9570"/><ellipse cx="43.7" cy="29" rx="2" ry="3" fill="#cf9570"/><ellipse cx="32" cy="28.5" rx="12" ry="12.6" fill="#dca582"/><path d="M20 26c-.4-8.4 4.8-14 12-14s12.6 5.4 12 14c-1-3.4-2.6-5.4-4.6-5.8-1.4 2-4.2 3-7.4 3s-6-1-7.6-3c-1.8.4-3.4 2.4-4.4 5.8z" fill="#1e1a17"/><path d="M21.5 31c1 7.6 5.2 10.6 10.5 10.6s9.5-3 10.5-10.6c-2 4.2-5.4 6.2-10.5 6.2s-8.5-2-10.5-6.2z" fill="#4a3a30" opacity=".5"/><path d="M25 25.2q2.8-1.4 5.4-.2M33.6 25q2.6-1.2 5.4.2" stroke="#1e1a17" stroke-width="1.9" fill="none" stroke-linecap="round"/><ellipse cx="28" cy="29.4" rx="1.4" ry=".95" fill="#1e1a17"/><ellipse cx="36" cy="29.4" rx="1.4" ry=".95" fill="#1e1a17"/><path d="M26.2 28.7q1.8-.9 3.6 0M34.2 28.7q1.8-.9 3.6 0" stroke="#a8735a" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M32 30.5v3.6" stroke="#c38c69" stroke-width="1.1" stroke-linecap="round"/><path d="M28.4 35.6q3.6-1.6 7.2 0" stroke="#3a2c24" stroke-width="1.8" fill="none" stroke-linecap="round"/><path d="M29.6 37.8h4.8" stroke="#8a4f38" stroke-width="1.2" stroke-linecap="round"/></svg>`,
+  },
+  ai: {
+    name: "한끼 AI",
+    title: "생활 코치 비서",
+    svg: `<svg viewBox="0 0 64 64" aria-hidden="true" class="ai-orb"><defs><radialGradient id="hk-ai-core"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#9ff0ff"/><stop offset="1" stop-color="#1fb6ea"/></radialGradient><radialGradient id="hk-ai-glow"><stop offset="0" stop-color="#2ccbff" stop-opacity=".55"/><stop offset="1" stop-color="#2ccbff" stop-opacity="0"/></radialGradient></defs><circle cx="32" cy="32" r="32" fill="#0a1622"/><path d="M0 12h64M0 22h64M0 32h64M0 42h64M0 52h64M12 0v64M22 0v64M32 0v64M42 0v64M52 0v64" stroke="#12304a" stroke-width=".5"/><circle cx="32" cy="32" r="24" fill="url(#hk-ai-glow)"/><g class="ai-ring"><circle cx="32" cy="32" r="22" fill="none" stroke="#2ccbff" stroke-opacity=".6" stroke-width=".9" stroke-dasharray="10 3 2 3"/></g><circle cx="32" cy="32" r="15.5" fill="none" stroke="#56dcff" stroke-width="5" stroke-dasharray="6.1 2"/><g class="ai-ring rev"><circle cx="32" cy="32" r="10.5" fill="none" stroke="#bff6ff" stroke-width="1.2" stroke-dasharray="3 2.5"/></g><circle cx="32" cy="32" r="6.5" fill="url(#hk-ai-core)"/><path d="M32 4v5M32 55v5M4 32h5M55 32h5" stroke="#56dcff" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+  },
+};
+const personaOf = (m) => (["auto", "shopping", "weekly"].includes(m?.kind) ? "chef" : m?.kind === "workout" ? "trainer" : "ai");
+const avatar = (key) => {
+  const img = typeof catalog !== "undefined" && catalog?.personas?.[key];
+  return `<div class="avatar persona ${key}" title="${PERSONAS[key].name}">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : PERSONAS[key].svg}</div>`;
+};
+const signature = (key) => `<p class="persona-name"><b>${PERSONAS[key].name}</b><span>${PERSONAS[key].title}</span></p>`;
+
 function welcome() {
   const lots = st?.["포장"] || [];
   const soon = [...lots].filter((l) => l.expires).sort((a, b) => a.expires.localeCompare(b.expires)).slice(0, 3);
-  return `<div class="bubble agent welcome"><div class="avatar">${ic("sparkles")}</div><div class="bubble-body">
-    <p class="lead">안녕하세요, 한끼 코치예요.</p>
+  return `<div class="bubble agent welcome">${avatar("ai")}<div class="bubble-body">${signature("ai")}
+    <p class="lead">안녕하세요, 한끼 AI예요.</p>
+    <div class="team"><span>요리는</span>${avatar("chef")}<b>한끼 셰프</b><span>, 운동은</span>${avatar("trainer")}<b>한끼 트레이너</b><span>가 이어서 맡아요.</span></div>
     <p>지금 상황을 말해 주시면 냉장고 재료로 메뉴를 고르고, 부족한 재료 담기·조리 안내·영상·운동·알림까지 이어서 진행할게요.</p>
     <div class="fridge-mini">${ic("refrigerator")}<span>재료 ${st?.["냉장고"]?.length || 0}종</span>${soon.map((l) => `<span class="pill ${expiry(l.expires)[1] ? "warn" : ""}">${esc(l.item)} ${esc(expiry(l.expires)[0])}</span>`).join("")}</div>
   </div></div>`;
@@ -169,12 +196,13 @@ function agentCard(m) {
     body += m.answer ? "" : `<p>${esc(m.note)}</p>`;
     body += m.detail && results[m.id] ? `<div class="cta">${btn("결과 자세히 보기", "agentDetail", "btn alt", "arrow-up-right", m.id)}</div>` : "";
   }
-  return `<div class="bubble agent" id="m-${m.id}"><div class="avatar">${ic("sparkles")}</div><div class="bubble-body">${body}<time>${hhmmOf(m.at)}</time></div></div>`;
+  const who = personaOf(m);
+  return `<div class="bubble agent ${who}" id="m-${m.id}">${avatar(who)}<div class="bubble-body">${signature(who)}${body}<time>${hhmmOf(m.at)}</time></div></div>`;
 }
 
 function typing() {
   if (!waiting) return "";
-  return `<div class="bubble agent typing" role="status"><div class="avatar">${ic("sparkles")}</div><div class="bubble-body"><div class="dots"><i></i><i></i><i></i></div><ol class="progress-steps">${STEPS.map((s, i) => `<li class="${i < waiting.step ? "done" : i === waiting.step ? "on" : ""}">${esc(s)}</li>`).join("")}</ol></div></div>`;
+  return `<div class="bubble agent typing" role="status">${avatar("ai")}<div class="bubble-body"><div class="dots"><i></i><i></i><i></i></div><ol class="progress-steps">${STEPS.map((s, i) => `<li class="${i < waiting.step ? "done" : i === waiting.step ? "on" : ""}">${esc(s)}</li>`).join("")}</ol></div></div>`;
 }
 
 function agentView() {

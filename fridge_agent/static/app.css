@@ -1402,3 +1402,25 @@ dialog.cook-full .cook-text { font-size: 1.35rem; }
 @media (max-width: 760px) {
   main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); } /* 하단 메뉴에 내용이 가리지 않게 */
 }
+
+/* 전문가 캐릭터(한끼 셰프·트레이너·AI) */
+.bubble .avatar.persona { width: 42px; height: 42px; background: none; padding: 0; overflow: hidden; box-shadow: 0 2px 8px #1d3b2c26; }
+.bubble .avatar.persona svg { width: 100%; height: 100%; display: block; }
+.persona-name { display: flex; align-items: baseline; gap: 6px; margin: 0; font-size: 0.8rem; }
+.persona-name b { font-weight: 800; }
+.persona-name span { color: var(--muted); font-size: 0.75rem; }
+.bubble.chef .persona-name b { color: #8a5a2b; }
+.bubble.trainer .persona-name b { color: #b4532a; }
+.bubble.ai .persona-name b, .bubble.welcome .persona-name b { color: #1679a8; }
+.bubble.chef .bubble-body { border-left: 3px solid #e8d3ad; }
+.bubble.trainer .bubble-body { border-left: 3px solid #f2b79b; }
+.bubble.ai .bubble-body { border-left: 3px solid #9fdcf3; }
+.team { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.team .avatar.persona { width: 24px; height: 24px; border-radius: 50%; overflow: hidden; display: inline-block; vertical-align: middle; }
+.team .avatar.persona svg { width: 100%; height: 100%; display: block; }
+.ai-orb .ai-ring { transform-origin: 32px 32px; animation: ai-spin 6s linear infinite; }
+.ai-orb .ai-ring.rev { animation-duration: 4s; animation-direction: reverse; }
+.typing .ai-orb .ai-ring { animation-duration: 1.6s; }
+@keyframes ai-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ai-orb .ai-ring { animation: none; } }
+.avatar.persona img { width: 100%; height: 100%; object-fit: cover; display: block; }

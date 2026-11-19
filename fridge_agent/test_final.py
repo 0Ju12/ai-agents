@@ -33,8 +33,6 @@ def test_measured_lots_expiry_fefo_and_atomic_shortage():
     pantry("계란", 120)
     p = api.run("메뉴 두부 달걀찜")["계획"]
     assert p["예상 kcal"] == 148 and p["영양"]["protein_g"] == 14.4
-    with pytest.raises(ValueError):
-        api.run("조리 3인분 15분")
     after = api.run("조리 2인분 14분")
     assert [(x["item"], x["grams"]) for x in after["포장"]] == [("두부", 40), ("두부", 90), ("달걀", 20)]
     eaten = api.run("섭취 두부 달걀찜")

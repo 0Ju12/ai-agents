@@ -260,6 +260,10 @@ def record_note(command, arg, intent, params, state, day):
         return f"식사 {n}가지를 기록했어요 · 약 {kcal:.0f}kcal, 단백질 {protein:.1f}g" + (f" (영양 미확인: {', '.join(unknown)})" if unknown else "")
     if command == "섭취삭제":
         return "섭취 기록을 지웠어요."
+    if command == "조리" and state.get("records"):
+        r = state["records"][-1]
+        lacking = r.get("냉장고에 없던 재료") or {}
+        return f"{r['meal']} {r['servings']}인분 조리를 기록했어요. 남은 음식에 담았어요." + (" 냉장고에 있는 만큼만 차감했어요 · 부족했던 양 " + ", ".join(f"{k} {v:g}g" for k, v in lacking.items()) if lacking else " 사용한 재료를 냉장고에서 차감했어요.")
     return None
 
 
@@ -776,7 +780,19 @@ def recipes(session_id: str = "default"):
         "meals": list(meals.values()),
         "ingredients": list(refs.values()),
         "exercises": json.loads((HERE / "assets" / "training.json").read_text(encoding="utf-8")),
+        "personas": persona_images(),
     }
+
+
+def persona_images():
+    """static/personas/{chef,trainer,ai}.(webp|png|jpg) 가 있으면 기본 일러스트 대신 쓴다. 사용 권리가 있는 이미지만 넣는다."""
+    found = {}
+    for key in ("chef", "trainer", "ai"):
+        for ext in ("webp", "png", "jpg"):
+            if (HERE / "static" / "personas" / f"{key}.{ext}").is_file():
+                found[key] = f"/static/personas/{key}.{ext}"
+                break
+    return found
 
 
 def tracer(session_id):

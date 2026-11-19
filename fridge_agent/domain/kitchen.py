@@ -171,16 +171,15 @@ def select_meal(state, meals, refs, day, available_minutes=None):
 
 def cook(state, servings, actual, day):
     plan = state.get("last_meal", {})
-    if not plan.get("예시 1인분(g)") or plan.get("상태") != "재료 보유":
-        raise ValueError("조리 가능한 식단을 먼저 선택하세요.")
+    if not plan.get("예시 1인분(g)"):
+        raise ValueError("조리할 메뉴를 먼저 선택하세요.")
     if not 1 <= servings <= 20 or not 1 <= actual <= 600:
         raise ValueError("조리 분량이나 시간을 확인하세요.")
     grams = plan["예시 1인분(g)"]
     if excluded_by_food(state, grams):
         raise ValueError("제외 재료 조건이 바뀌었습니다. 메뉴를 다시 선택하세요.")
+    # 냉장고에 없던 재료로도 요리할 수 있다(따로 산 재료 등): 있는 만큼만 차감하고 없던 재료는 기록에 남긴다
     missing, unchecked = shortages(grams, inventory(state, day), servings)
-    if missing:
-        raise ValueError("부족한 재료 · " + ", ".join(f"{k} {v:g}g" for k, v in missing.items()))
     for item, weight in grams.items():
         needed = weight * servings
         lots = sorted(
@@ -216,8 +215,10 @@ def cook(state, servings, actual, day):
             "servings": servings,
             "date": day,
             "미계량": unchecked,
+            "냉장고에 없던 재료": missing,
         }
     )
+    return missing
 
 
 def leftovers(state):

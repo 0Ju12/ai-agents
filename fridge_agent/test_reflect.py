@@ -197,3 +197,28 @@ def test_cook_guide_servings_reflect(c):
     g1 = {x["이름"]: x["분량(g)"] for x in one["재료 합계"]}
     g3 = {x["이름"]: x["분량(g)"] for x in three["재료 합계"]}
     assert all(abs(g3[k] - g1[k] * 3) < 0.11 for k in g1)
+
+
+def test_cook_records_even_when_fridge_lacks_ingredients(c):
+    """조리 모드에서 본 레시피를 냉장고에 없던 재료로 만들어도 기록되고, 있는 재료만 차감된다."""
+    say(c, "입고", name="두부", quantity=500, unit="g")
+    say(c, "메뉴 김치 두부찌개")
+    r = say(c, "조리 2인분 16분")
+    assert r["남은 음식"] == {"김치 두부찌개": 2}
+    assert "있는 만큼만 차감" in r["계획"]["안내"] and "김치" in r["계획"]["안내"]
+    tofu = next(l for l in r["포장"] if l["item"] == "두부")
+    assert tofu["grams"] < 500
+
+
+def test_cook_beyond_stock_deducts_only_what_exists(c):
+    """재고보다 많이 조리하면 소비기한이 남은 재고만 모두 쓰고, 지난 재고는 건드리지 않으며 모자란 양을 알린다."""
+    import datetime as dt
+
+    d = dt.date.today()
+    say(c, "입고", name="두부", quantity=40, unit="g", expires=(d - dt.timedelta(days=1)).isoformat())
+    say(c, "입고", name="두부", quantity=200, unit="g", expires=(d + dt.timedelta(days=2)).isoformat())
+    say(c, "입고", name="달걀", quantity=120, unit="g")
+    say(c, "메뉴 두부 달걀찜")
+    r = say(c, "조리 3인분 15분")
+    assert [(x["item"], x["grams"]) for x in r["포장"]] == [("두부", 40)]
+    assert "두부" in r["계획"]["안내"] and "달걀" in r["계획"]["안내"]
