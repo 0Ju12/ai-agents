@@ -57,6 +57,7 @@ from storage import (
 import workflow
 from workflow import execute
 import autopilot
+import health_check
 import menu_match
 import reminders
 import cook_guide
@@ -406,6 +407,16 @@ def change(state, cmd, arg, params, day, emit):
         reminders.toggle(state, arg)
     elif cmd == "영양제복용":
         reminders.take(state, daily, arg, reminders.now_hhmm())
+    elif cmd == "건강체크":
+        health_check.save(state, health_check.Metrics.model_validate(params), day)
+    elif cmd == "건강반영":
+        health_check.apply(state)
+    elif cmd == "건강반영해제":
+        state.pop("health_focus", None)
+    elif cmd == "내루틴저장":
+        workout_guide.save_custom(state, params)
+    elif cmd == "내루틴삭제":
+        state["my_routines"] = [r for r in state.get("my_routines", []) if r["id"] != arg]
     elif cmd == "데모":
         autopilot.seed_demo(state, day)
     elif cmd == "영상링크":
@@ -526,6 +537,13 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
     if buy:  # "두부 사고 싶어" → 장보기
         command, arg = "쇼핑", buy
         emit("llm_decision", "장보기 해석", method="rule", decision=buy, reason="구매 요청 문장")
+    if not explicit and message.partition(" ")[0] not in COMMANDS:
+        if re.search(r"(인바디|건강\s*검진|검진|혈압|혈당|콜레스테롤|중성지방|체지방)", message):
+            command, arg = "확인", "건강 체크에서 인바디·검진 수치를 넣으면 공개 기준과 비교해 생활 습관을 안내하고 식단·운동 추천에 반영해 드려요. 진단이 아닌 참고 정보예요."
+            emit("llm_decision", "건강 안내", method="rule", decision="health", reason="건강 수치 관련 문장")
+        elif re.search(r"(일주일|주간|7일).*(식단|메뉴)|(식단|메뉴).*(짜|계획)", message):
+            command, arg = "주간계획", ""
+            emit("llm_decision", "주간 식단", method="rule", decision="weekly", reason="식단 계획 요청")
     if command == "확인" and (any(t in message for t in kitchen_catalog(state)[0]) or menu_match.matches(message, kitchen_catalog(state)[0])[0]):
         command, arg = "추천", ""  # 메뉴 이름을 말한 상황 문장은 추천·자동 진행으로
     emit("llm_decision", "요청 분류", method="rule", decision=command, reason="요청과 변경할 조건 확인")
@@ -813,14 +831,30 @@ def guide_media(body: MediaRequest):
 
 class WorkoutRequest(BaseModel):
     session_id: str = Field(default="default", min_length=1, max_length=80)
+    routine_id: str | None = Field(default=None, max_length=20)
 
 
 @app.post("/api/workout/guide")
 def workout_plan(body: WorkoutRequest):
-    """운동 모드: 오늘 루틴의 단계별 안내와 다른 선택지."""
+    """운동 모드: 오늘 루틴(또는 나만의 루틴)의 단계별 안내와 다른 선택지."""
     state = KitchenDB().read(body.session_id)[1]
     day = today().isoformat()
-    return {**workout_guide.build(state), **workout_guide.options(state, day)}
+    try:
+        guide = workout_guide.build_custom(state, body.routine_id) if body.routine_id else workout_guide.build(state)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return {**guide, **workout_guide.options(state, day), "내 루틴": state.get("my_routines", []), "운동 목록": workout_guide.catalog()}
+
+
+@app.get("/api/health/latest")
+def health_latest(session_id: str = "default"):
+    """마지막 건강 체크 결과(기준 비교·생활 안내)와 반영 상태."""
+    state = KitchenDB().read(session_id)[1]
+    checks = state.get("health_checks", [])
+    if not checks:
+        return {"있음": False, "안내": health_check.DISCLAIMER, "기준 출처": health_check.SOURCES}
+    last = checks[-1]
+    return {"있음": True, "날짜": last["day"], "입력": last["values"], **health_check.evaluate(health_check.Metrics.model_validate(last["values"])), "반영됨": state.get("health_focus", [])}
 
 
 class ExerciseMediaRequest(BaseModel):

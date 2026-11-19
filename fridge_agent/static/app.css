@@ -1348,3 +1348,45 @@ dialog.cook-full .cook-text { font-size: 1.35rem; }
 .serv-row span { color: var(--muted); font-weight: 700; }
 .serv-row b { min-width: 52px; text-align: center; }
 .video-cue { margin-top: 8px; width: 100%; justify-content: center; }
+
+/* 트레이너 모드 */
+.coach-say { background: #f0f6e6; border-radius: 14px; padding: 10px 12px; font-weight: 650; line-height: 1.5; }
+.rep-box { display: grid; gap: 6px; flex: none; }
+.rep-count { display: flex; align-items: baseline; gap: 4px; }
+.rep-count b { font-size: 3rem; line-height: 1; font-variant-numeric: tabular-nums; color: var(--green); }
+.rep-count span { color: var(--muted); font-weight: 700; }
+.beats { display: flex; gap: 4px; flex-wrap: wrap; }
+.beats span { font-size: 12px; padding: 3px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+.beats span.on { background: var(--green); color: #fff; border-color: var(--green); font-weight: 800; }
+.wk-points .step-list { margin: 0; }
+.mistakes { margin: 0; padding-left: 18px; color: #a4511d; }
+.variants { display: flex; gap: 6px; flex-wrap: wrap; }
+.feel { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.feel-btn { display: grid; justify-items: center; gap: 2px; padding: 12px 6px; border-radius: 16px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+.feel-btn span { font-size: 30px; }
+.feel-btn small { color: var(--muted); font-size: 11px; text-align: center; }
+.wk-stage.intro .fig, .wk-stage.intro .photo-demo { outline: 3px solid var(--lime); }
+/* 재료 준비 보드 · 확인 기준 */
+.prep-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; padding: 12px; border-radius: 18px; background: linear-gradient(#ddb37d, #c99a62); }
+.prep-tile { position: relative; display: grid; justify-items: center; gap: 2px; padding: 10px 6px; border-radius: 14px; background: #fffdf6; text-align: center; box-shadow: 0 2px 6px #0002; }
+.prep-tile .pi { font-size: 30px; }
+.prep-tile small { color: var(--muted); font-size: 11px; }
+.prep-tile.missing { outline: 2px dashed #b4501b; }
+.prep-tile em { position: absolute; top: 4px; right: 6px; font-style: normal; font-size: 10px; font-weight: 800; color: #b4501b; }
+.how-box { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; background: #fff; }
+.how-box ul { margin: 4px 0 0; padding-left: 18px; }
+.how-box.check { background: #f0f6e6; border-color: #cfe0bf; }
+.pill.danger { background: #fde4dc; color: #a2341b; border-color: #f3b9a8; }
+.danger-box { background: #fff3ee; border-color: #f3b9a8; }
+.tips { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.build-row { display: grid; grid-template-columns: 1fr 52px auto 56px auto 56px auto; gap: 4px; align-items: center; padding: 4px 0; font-size: 13px; }
+.build-row input[type=number] { width: 100%; padding: 4px; }
+@media (max-width: 760px) { .build-row { grid-template-columns: 1fr 44px auto 48px auto 48px auto; } }
+.prescribe { margin: 0; font-size: 14px; } .prescribe b { color: var(--green); }
+/* 배치 보정 */
+.pill { white-space: nowrap; }
+.wk-now { flex-wrap: wrap; }
+.wk-now > div:last-child { flex: 1 1 160px; min-width: 0; }
+.rep-box { flex: 1 1 100%; }
+.cook-ring b#cook-clock { font-size: 14px; }
+.cook-ring.big b#wk-clock { font-size: 18px; }

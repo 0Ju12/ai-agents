@@ -52,7 +52,23 @@ EQUIPMENT = {
 }
 
 
+CORE_ADD = {0: "데드버그", 1: "플랭크", 2: "플랭크"}  # 상체·하체 날에 덧붙이는 코어 동작
+WARMUP = [("제자리 걷기", 60), ("팔 돌리기", 45)]
+COOLDOWN = [("허벅지 앞 스트레칭", 30), ("가슴 스트레칭", 20), ("마무리 호흡", 40)]
+
+
+def set_seconds(name, item):
+    """한 세트에 걸리는 시간(초): 횟수형은 템포 × 횟수, 버티기형은 버티는 시간."""
+    if item["mode"] in ("hold", "time"):
+        return item["hold_sec"]
+    return sum(item["tempo"]) * item["reps"]
+
+
 def routine(state, available):
+    """트레이너처럼 짠 오늘 루틴: 준비 운동 → 본운동(횟수·세트·휴식·템포) → 마무리 스트레칭.
+    가용 시간에 맞춰 동작 수와 세트 수를 조절하고, 최근 '어려움' 피드백이면 한 단계 쉽게 한다."""
+    from domain.exercise_library import LEVEL_PLAN, trainer
+
     body = state.get("body") or GOALS[state.get("goal", "체력")]
     level = state.get("level", "초보")
     difficulty = LEVELS.index(level)
@@ -62,8 +78,8 @@ def routine(state, available):
         difficulty = max(0, difficulty - 1)
     minutes = min(max(available, 0), state.get("exercise_minutes", 10))
     if minutes < 5:
-        return {"body": body, "minutes": 0, "steps": [], "summary": "운동 시간 부족 · 5분 이상 확보하세요."}
-    # 숙련도에 맞는 동작 2~3개를 번갈아 하는 서킷: 초보는 쉬운 두 동작, 중급은 세 동작, 숙련은 어려운 동작 위주
+        return {"body": body, "minutes": 0, "steps": [], "exercises": [], "summary": "운동 시간 부족 · 5분 이상 확보하세요."}
+    plan = LEVEL_PLAN[LEVELS[difficulty]]
     picks = {0: [0, 1], 1: [0, 1, 2], 2: [2, 1, 2]}[difficulty]
     chosen = []
     for i in picks:
@@ -72,23 +88,59 @@ def routine(state, available):
             item = EQUIPMENT[body]
         if item not in chosen:
             chosen.append(item)
-    work = (20, 30, 40)[difficulty]
-    if easier:
-        work = max(15, work - 5)
-    rounds = max(1, (minutes - 2) // len(chosen))  # 한 세트 = 운동 + 휴식 1분
-    steps = ["제자리 걷기와 가벼운 관절 움직임 1분"]
-    steps += [f"{name} {work}초 + 휴식 {60 - work}초 × {rounds}세트 · {guide}" for name, guide in chosen]
-    steps.append("천천히 호흡하며 마무리 1분")
-    move = " · ".join(name for name, _ in chosen)
+    if body not in ("코어", "전신"):
+        core = CORE_ADD[difficulty]
+        guide = next(g for n, g in MOVES["코어"] if n == core)
+        chosen.append((core, guide))
+    names = {n for n, _ in chosen}
+    warmup = [(n, t) for n, t in WARMUP if n not in names] or [("팔 돌리기", 45)]  # 본운동과 겹치는 준비 운동은 뺀다
+    budget = minutes * 60 - sum(t for _, t in warmup) - sum(t for _, t in COOLDOWN)
+
+    def program(sets):
+        out = []
+        for name, guide in chosen:
+            t = trainer(name)
+            mode = t.get("mode") if t.get("mode") in ("hold", "time") else "reps"  # time: 정해진 시간 동안 계속(걷기 등)
+            reps = max(6, plan["reps"] - (2 if easier else 0))
+            hold = max(15, plan["hold"] - (5 if easier else 0)) + (20 if mode == "time" else 0)
+            item = {"name": name, "guide": guide, "mode": mode, "reps": reps if mode == "reps" else None,
+                    "hold_sec": hold if mode != "reps" else None, "tempo": t.get("tempo", [2, 1, 2]),
+                    "sets": sets, "rest_sec": plan["rest"] + (15 if easier else 0)}
+            item["work_sec"] = set_seconds(name, item)
+            out.append(item)
+        return out
+
+    sets = plan["sets"]
+    exercises = program(sets)
+    used = lambda ex: sum(x["sets"] * (x["work_sec"] + x["rest_sec"]) for x in ex)
+    while used(exercises) > budget and sets > 1:  # 시간이 모자라면 세트를 줄이고
+        sets -= 1
+        exercises = program(sets)
+    while used(exercises) > budget and len(exercises) > 1:  # 그래도 모자라면 보조 동작부터 뺀다
+        exercises.pop()
+    while used(exercises) + (exercises[0]["work_sec"] + exercises[0]["rest_sec"]) * len(exercises) <= budget and sets < plan["sets"] + 2:
+        sets += 1  # 시간이 남으면 세트를 늘린다(처방 +2세트까지)
+        exercises = program(sets)[: len(exercises)]
+    def describe_set(x):
+        amount = f"{x['reps']}회" if x["mode"] == "reps" else f"{x['hold_sec']}초 버티기" if x["mode"] == "hold" else f"{x['hold_sec']}초 동안"
+        return f"{x['name']} {amount} × {x['sets']}세트 · 휴식 {x['rest_sec']}초 · {x['guide']}"
+    steps = ["준비 운동: " + " · ".join(f"{n} {t}초" for n, t in warmup)]
+    steps += [describe_set(x) for x in exercises]
+    steps.append("마무리 스트레칭: " + " · ".join(f"{n} {t}초" for n, t in COOLDOWN))
+    move = " · ".join(x["name"] for x in exercises)
+    total = sum(t for _, t in warmup) + used(exercises) + sum(t for _, t in COOLDOWN)
     return {
         "body": body,
         "level": level,
         "minutes": minutes,
+        "planned_sec": total,
         "steps": steps,
         "move": move,
-        "exercises": [{"name": n, "guide": g, "work_sec": work, "rest_sec": 60 - work, "sets": rounds} for n, g in chosen],
+        "exercises": exercises,
+        "warmup": [{"name": n, "seconds": t} for n, t in warmup],
+        "cooldown": [{"name": n, "seconds": t} for n, t in COOLDOWN],
         "reason": "최근 어려움 피드백으로 강도 조정"
         if easier
         else f"{level} · {state.get('goal', '체력')} · 보유 기구 기준",
-        "summary": f"{body} · {move} · 휴식 포함 {minutes}분",
+        "summary": f"{body} · {move} · 약 {round(total / 60)}분",
     }

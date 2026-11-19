@@ -49,6 +49,8 @@ function compact(msg, r) {
     };
   if (p["운동 루틴"]) return { ...base, kind: "workout", routine: p["운동 루틴"], options: p["운동 선택지"] || [], note: p["안내"] || "" };
   if (p["검색어"] && p["직접 검색"]) return { ...base, kind: "shopping", term: p["검색어"], links: p["직접 검색"], items: Object.values(p["자료"] || {}).flatMap((x) => (x.ok ? x.data.slice(0, 3) : [])), budget: p["예산 안내"] || "" };
+  if ((r["추적"] || []).some((e) => e.name === "건강 안내")) return { ...base, kind: "health", note: p["안내"] || "" };
+  if (p["주간"]) return { ...base, kind: "weekly", days: p["주간"] };
   const reminder = (r["추적"] || []).some((e) => e.name === "알림 해석");
   if (reminder) return { ...base, kind: "reminder", note: "알림을 만들었어요. 기록 탭에서 시간과 상태를 확인할 수 있어요." };
   const text = p["답변"] || p["안내"] || (p["메뉴"] ? `${p["메뉴"]} · ${p["판단 기준"] || ""}` : "") || "반영했어요.";
@@ -150,6 +152,10 @@ function agentCard(m) {
       ${(m.options || []).length ? `<p class="sec">다른 선택지</p><div class="picks">${m.options.map((o) => `<article class="pick"><div><strong>${esc(o.title)}</strong><small>${esc(o.why)} · ${esc(o.summary || "")}</small></div>${btn("이걸로", "wkApply", "chip", "", JSON.stringify(o.apply))}</article>`).join("")}</div>` : ""}`;
   } else if (m.kind === "shopping") {
     body += `<p><strong>${esc(m.term)}</strong> 상품을 찾아봤어요.</p>${m.items.length ? `<div class="picks">${m.items.map((x) => `<article class="pick"><div><strong>${x.url ? a(x.title, x.url) : esc(x.title)}</strong><small>${x.price_krw != null ? fmt(x.price_krw) + "원 · " : ""}${esc(x.merchant || "")}${x["100g당 가격"] ? " · 100g당 " + fmt(x["100g당 가격"]) + "원" : ""}</small></div></article>`).join("")}</div>` : '<p class="hint">쇼핑 API 키가 없어 상품 목록 대신 바로 검색할 수 있는 링크를 드려요.</p>'}<div class="cta">${Object.entries(m.links).map(([k, u]) => `<a class="btn alt" href="${esc(u)}" rel="noopener noreferrer">${esc(k)} ↗</a>`).join("")}</div>${m.budget ? `<p class="footnote">${esc(m.budget)}</p>` : ""}`;
+  } else if (m.kind === "health") {
+    body += `<p>${esc(m.note)}</p><div class="cta">${btn("건강 체크 입력", "healthForm", "btn", "heart-pulse")}${btn("기록 탭 열기", "journal", "btn alt")}</div>`;
+  } else if (m.kind === "weekly") {
+    body += `<p>현재 냉장고 기준 7일 식단 초안이에요.</p><div class="picks">${m.days.map((d) => `<article class="pick"><b>${esc(d.day.slice(8))}</b><div><strong>${esc(d.meal || "가능한 메뉴 없음")}</strong><small>${esc(d.workout)} · 추가할 재료 ${Object.keys(d.missing).length}종</small></div>${d.meal ? btn("조리", "agentCook", "chip", "timer", JSON.stringify([d.meal, 1])) : ""}</article>`).join("")}</div>`;
   } else if (m.kind === "reminder") {
     body += `<p>${esc(m.note)}</p><div class="cta">${btn("알림 보기", "journal", "btn alt", "notebook-pen")}</div>`;
   } else if (m.kind === "error") {

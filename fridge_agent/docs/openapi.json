@@ -728,7 +728,7 @@
     "/api/workout/guide": {
       "post": {
         "summary": "Workout Plan",
-        "description": "운동 모드: 오늘 루틴의 단계별 안내와 다른 선택지.",
+        "description": "운동 모드: 오늘 루틴(또는 나만의 루틴)의 단계별 안내와 다른 선택지.",
         "operationId": "workout_plan_api_workout_guide_post",
         "requestBody": {
           "content": {
@@ -740,6 +740,45 @@
           },
           "required": true
         },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health/latest": {
+      "get": {
+        "summary": "Health Latest",
+        "description": "마지막 건강 체크 결과(기준 비교·생활 안내)와 반영 상태.",
+        "operationId": "health_latest_api_health_latest_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default",
+              "title": "Session Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1663,6 +1702,18 @@
             "minLength": 1,
             "title": "Session Id",
             "default": "default"
+          },
+          "routine_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routine Id"
           }
         },
         "type": "object",

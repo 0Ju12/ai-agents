@@ -46,10 +46,13 @@ def test_rule_parsing_helpers():
 def test_local_guide_scales_grams_without_model(client):
     api.run("추가 두부")
     g = client.post("/api/guide", json={"title": "두부 달걀찜", "servings": 2}).json()
-    assert g["판단 방법"] == "규칙" and len(g["단계"]) == 3
+    assert g["판단 방법"] == "규칙" and len(g["단계"]) == 5  # 재료 준비 + 원문 3단계 + 완성·보관
+    assert g["단계"][0]["종류"] == "prep" and g["단계"][-1]["종류"] == "finish"
+    assert any("두부" in line and "모)" in line for line in g["단계"][0]["계량"])  # 두부 200g(⅔모)
     tofu = next(x for x in g["재료 합계"] if x["이름"] == "두부")
     assert tofu["분량(g)"] == 200 and tofu["보유"] is True
-    assert [c["애니메이션"] for c in g["단계"]][1] == "steam"  # 찜기에 넣으세요 → 찌기
+    assert [c["애니메이션"] for c in g["단계"]][2] == "steam"  # 찜기에 넣으세요 → 찌기
+    assert g["단계"][2]["익힘 기준"] and g["단계"][2]["불 세기"] == "센불" and g["단계"][2]["불 세기 권장"]
     assert any(e["type"] == "node_start" for e in g["추적"])
     assert client.post("/api/guide", json={"title": "없는 메뉴"}).status_code == 422
 
@@ -76,9 +79,10 @@ def test_external_guide_uses_step_photos_and_validates_model(monkeypatch, client
         plan={"GuideDraft": {"steps": [{"index": 2, "action": "넣기", "ingredients": ["두부", "랍스터"], "tip": ""}]}},
     )
     g = client.post("/api/guide", json={"recipe_id": "77"}).json()
-    assert g["단계"][0]["사진"].endswith("77_1.png") and g["단계"][0]["동작"] == "볶기"
-    assert g["단계"][1]["타이머(초)"] == 600
-    assert [x["이름"] for x in g["단계"][2]["재료"]] == ["두부"]  # 목록에 없는 '랍스터'는 버린다
+    steps = g["단계"][1:-1]  # 앞뒤 재료 준비·완성 단계를 뺀 원문 단계
+    assert steps[0]["사진"] and steps[0]["동작"] == "볶기"
+    assert steps[1]["타이머(초)"] == 600
+    assert [x["이름"] for x in steps[2]["재료"]] == ["두부"]  # 목록에 없는 '랍스터'는 버린다
     assert g["판단 방법"].startswith("규칙 + 모델")
 
 

@@ -19,7 +19,7 @@ from domain.catalog import canonical
 
 # 동작 → (화면 애니메이션 이름, 문장에서 찾는 단어). 앞에 있을수록 우선한다.
 ACTIONS = {
-    "썰기": ("chop", ("썰", "다지", "채 ", "채를", "깍둑", "자르", "손질")),
+    "썰기": ("chop", ("썰", "써세요", "써요", "다지", "채 ", "채를", "깍둑", "자르", "손질", "찢으")),
     "데치기": ("blanch", ("데치", "데쳐")),
     "볶기": ("stir", ("볶",)),
     "끓이기": ("boil", ("끓", "삶")),
@@ -144,16 +144,24 @@ def build(title, steps, grams=None, raw_ingredients=None, photos=None, servings=
             emit("llm_decision", "조리 가이드", method="model", decision=len(draft.steps), reason="단계별 동작·재료 구조화")
         except (ValueError, OSError):
             emit("error", "조리 가이드", reason="규칙 구조화만 사용")
+    import recipe_detail as rd
+
     for card in cards:
         card["재료"] = [
             {
                 "이름": n,
                 "아이콘": icon(n),
                 "분량(g)": round(grams[n] * servings, 1) if n in grams else None,
+                "계량": rd.household(n, round(grams[n] * servings, 1)) if n in grams else "",
                 "보유": n in have,
             }
             for n in card["재료"]
         ]
+        rd.enrich(card, names)
+    # 앞에 재료 준비(계량·손질), 뒤에 완성·보관 단계를 붙여 처음 하는 사람도 따라 할 수 있게 한다
+    cards = [rd.prep_card(names, grams, servings, icon)] + cards + [rd.finish_card(len(cards) + 1, title)]
+    for i, c in enumerate(cards):
+        c["순서"] = i + 1
     return {
         "메뉴": title,
         "인분": servings,
@@ -161,7 +169,7 @@ def build(title, steps, grams=None, raw_ingredients=None, photos=None, servings=
         "판단 방법": method,
         "대표 아이콘": icon(names[0]) if names else "🍽️",
         "재료 합계": [
-            {"이름": n, "아이콘": icon(n), "분량(g)": round(grams[n] * servings, 1) if n in grams else None, "보유": n in have}
+            {"이름": n, "아이콘": icon(n), "분량(g)": round(grams[n] * servings, 1) if n in grams else None, "보유": n in have, "계량": __import__("recipe_detail").household(n, round(grams[n] * servings, 1)) if n in grams else ""}
             for n in names
         ],
         "단계": cards,

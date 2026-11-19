@@ -51,7 +51,12 @@ function fxLayer(card) {
     }[anim] || ""
   );
 }
+function prepBoard() {
+  // 재료 준비 단계: 계량한 재료를 도마 위에 늘어놓은 것처럼 보여 준다
+  return `<div class="prep-board">${guide["재료 합계"].map((x) => `<div class="prep-tile ${x["보유"] ? "" : "missing"}"><span class="pi">${esc(x["아이콘"])}</span><b>${esc(x["이름"])}</b><small>${x["분량(g)"] != null ? fmt(x["분량(g)"]) + "g" : "적당량"}${x["계량"] ? " · " + esc(x["계량"]) : ""}</small>${x["보유"] ? "" : '<em>미보유</em>'}</div>`).join("")}</div>`;
+}
 function stage(card) {
+  if (card["종류"] === "prep") return prepBoard();
   // 우선순위: 검수 승인된 AI 클립 → 단계 사진 + 움직임(깊이 맵이 있으면 2.5D) → 재료 아이콘 애니메이션
   if (card["클립"])
     return `<figure class="cook-photo"><video src="${esc(card["클립"])}" autoplay muted loop playsinline aria-label="${esc(card["순서"] + "단계 조리 장면")}"></video><figcaption>AI 생성 조리 장면 · 검수 완료 · 실제와 다를 수 있어요</figcaption></figure>`;
@@ -123,8 +128,11 @@ function cookCard() {
   ${tabs()}
   <div class="cook-body">${tab === "anim" ? stage(card) + stepVideoButton() : tab === "video" ? videoPane() : socialPane()}</div>
   <p class="cook-text">${esc(card["설명"])}</p>
+  ${card["손질"]?.length ? `<div class="how-box"><p class="sec-label">재료 손질</p><ul>${card["손질"].map((t) => `<li>${esc(t)}</li>`).join("")}</ul></div>` : ""}
+  ${card["익힘 기준"] ? `<div class="how-box check">✅ <b>이렇게 확인해요</b> · ${esc(card["익힘 기준"])}</div>` : ""}
+  ${card["불 세기"] && card["불 세기 권장"] ? `<p class="hint">🔥 불 세기는 원문에 없어 ${esc(card["불 세기"])}을 권장해요.</p>` : ""}
   ${card["팁"] ? `<p class="hint">${esc(card["팁"])}</p>` : ""}
-  ${card["재료"].length ? `<div class="btnbar">${card["재료"].map((x) => `<span class="pill ${x["보유"] ? "" : "warn"}">${esc(x["아이콘"] + " " + x["이름"])}${x["분량(g)"] != null ? " " + fmt(x["분량(g)"]) + "g" : ""}${x["보유"] ? "" : " · 미보유"}</span>`).join("")}</div>` : ""}
+  ${card["재료"].length ? `<div class="btnbar">${card["재료"].map((x) => `<span class="pill ${x["보유"] ? "" : "warn"}">${esc(x["아이콘"] + " " + x["이름"])}${x["분량(g)"] != null ? " " + fmt(x["분량(g)"]) + "g" : ""}${x["계량"] ? `(${esc(x["계량"])})` : ""}${x["보유"] ? "" : " · 미보유"}</span>`).join("")}</div>` : ""}
   ${secs ? `<div class="cook-timer"><div class="cook-ring" id="cook-ring" style="--p:${Math.round((1 - (remain || secs) / secs) * 100)}"><b id="cook-clock">${mmss(remain || secs)}</b></div><div><strong>${Math.round(secs / 60)}분 타이머</strong><p class="hint">원문에 적힌 시간이에요. 끝나면 진동과 음성으로 알려 드려요.</p></div>${btn(clock ? "일시정지" : "시작", "cookTimer", "btn alt", "timer")}</div>` : ""}
   <div class="cook-nav">${btn("이전", "cookPrev", "btn alt", "chevron-left")}${btn("읽어주기", "cookSpeak", "btn alt", "volume-2")}${last ? btn("조리 완료 기록", "cookDone", "btn", "check") : btn("다음", "cookNext", "btn", "chevron-right")}</div>
   <details><summary>전체 재료 (${guide["인분"]}인분)</summary><p>${guide["재료 합계"].map((x) => esc(x["아이콘"] + " " + x["이름"]) + (x["분량(g)"] != null ? " " + fmt(x["분량(g)"]) + "g" : "")).join(" · ")}</p><p class="hint">${esc(guide["안내"])} · ${esc(guide["출처"])} · ${esc(guide["판단 방법"])}</p></details></div>`;

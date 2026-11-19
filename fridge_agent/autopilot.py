@@ -66,11 +66,20 @@ def ranked(state, meals, refs, day, limit=None, top=3, light=False):
         if protein is not None:
             reasons.append(f"단백질 {protein:g}g")
         kcal = plan["예상 kcal"]
-        if light and kcal is not None:
+        focus = set(state.get("health_focus", []))
+        heavy = light or "weight" in focus or state.get("goal") == "체중 관리"
+        if heavy and kcal is not None:
             reasons.insert(0, f"{kcal}kcal")
+        nut = plan["영양"]
+        health_key = 0
+        for name, field, unit in (("sodium", "sodium_mg", "mg"), ("sugar", "carb_g", "g"), ("fat", "fat_g", "g")):
+            if name in focus and nut.get(field) is not None:
+                health_key += nut[field] / {"sodium_mg": 2000, "carb_g": 130, "fat_g": 50}[field]  # 하루 기준량 대비 비율 합
+                reasons.append({"sodium": "나트륨", "sugar": "탄수화물", "fat": "지방"}[name] + f" {nut[field]:g}{unit}")
         key = (
             len(plan["부족분"]),
-            (kcal if kcal is not None else 9999) if light else 0,
+            round(health_key, 3),
+            (kcal if kcal is not None else 9999) if heavy else 0,
             soon[0][1] if soon else 999,
             -(protein or 0) if state.get("diet") == "단백질 우선" else 0,
             plan["조리시간(분)"],
