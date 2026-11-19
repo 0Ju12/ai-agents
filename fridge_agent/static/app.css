@@ -1390,3 +1390,7 @@ dialog.cook-full .cook-text { font-size: 1.35rem; }
 .rep-box { flex: 1 1 100%; }
 .cook-ring b#cook-clock { font-size: 14px; }
 .cook-ring.big b#wk-clock { font-size: 18px; }
+.evidence { display: grid; gap: 8px; }
+.evidence article { border-left: 3px solid var(--lime); padding: 4px 10px; background: #fafbf3; border-radius: 0 10px 10px 0; }
+.evidence p { margin: 2px 0; font-size: 14px; }
+.evidence small { color: var(--muted); }

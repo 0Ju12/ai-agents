@@ -1,0 +1,305 @@
+{
+  "요청": "퇴근했는데 20분밖에 없어. 단백질 위주로 먹고 싶어",
+  "이벤트": [
+    {
+      "session_id": "default",
+      "type": "node_start",
+      "name": "분석",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.388+00:00",
+      "seq": 1
+    },
+    {
+      "session_id": "default",
+      "type": "llm_decision",
+      "name": "요청 분류",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f",
+        "method": "rule",
+        "decision": "추천",
+        "reason": "요청과 변경할 조건 확인"
+      },
+      "ts": "2026-11-19T04:05:09.391+00:00",
+      "seq": 2
+    },
+    {
+      "session_id": "default",
+      "type": "node_end",
+      "name": "분석",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.392+00:00",
+      "seq": 3
+    },
+    {
+      "session_id": "default",
+      "type": "node_start",
+      "name": "분석",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.397+00:00",
+      "seq": 4
+    },
+    {
+      "session_id": "default",
+      "type": "conditions",
+      "name": "요청 조건",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f",
+        "command": "추천",
+        "argument": "",
+        "기준": {},
+        "선호": {
+          "diet": "단백질 우선"
+        },
+        "제약": {
+          "minutes": 20
+        },
+        "tool_needed": true
+      },
+      "ts": "2026-11-19T04:05:09.398+00:00",
+      "seq": 5
+    },
+    {
+      "session_id": "default",
+      "type": "node_end",
+      "name": "분석",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.399+00:00",
+      "seq": 6
+    },
+    {
+      "session_id": "default",
+      "type": "node_start",
+      "name": "계획",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.401+00:00",
+      "seq": 7
+    },
+    {
+      "session_id": "default",
+      "type": "plan",
+      "name": "작업 목록",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f",
+        "tools": [
+          "local"
+        ],
+        "tasks": [
+          {
+            "tool": "local",
+            "argument": "",
+            "fixed": true,
+            "purpose": "등록한 조건에서 식사와 운동 계산"
+          }
+        ],
+        "reason": "요청과 입력 조건에 필요한 작업 선택"
+      },
+      "ts": "2026-11-19T04:05:09.402+00:00",
+      "seq": 8
+    },
+    {
+      "session_id": "default",
+      "type": "node_end",
+      "name": "계획",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.403+00:00",
+      "seq": 9
+    },
+    {
+      "session_id": "default",
+      "type": "node_start",
+      "name": "실행",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.404+00:00",
+      "seq": 10
+    },
+    {
+      "session_id": "default",
+      "type": "tool_call",
+      "name": "local",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f",
+        "argument": ""
+      },
+      "ts": "2026-11-19T04:05:09.405+00:00",
+      "seq": 11
+    },
+    {
+      "session_id": "default",
+      "type": "tool_result",
+      "name": "local",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f",
+        "ok": true,
+        "error": null,
+        "source": null,
+        "count": null,
+        "ms": 0
+      },
+      "ts": "2026-11-19T04:05:09.406+00:00",
+      "seq": 12
+    },
+    {
+      "session_id": "default",
+      "type": "node_end",
+      "name": "실행",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.407+00:00",
+      "seq": 13
+    },
+    {
+      "session_id": "default",
+      "type": "node_start",
+      "name": "판정",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.409+00:00",
+      "seq": 14
+    },
+    {
+      "session_id": "default",
+      "type": "node_end",
+      "name": "판정",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.410+00:00",
+      "seq": 15
+    },
+    {
+      "session_id": "default",
+      "type": "node_start",
+      "name": "검증",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.411+00:00",
+      "seq": 16
+    },
+    {
+      "session_id": "default",
+      "type": "evaluation",
+      "name": "실행 검증",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f",
+        "status": "정상",
+        "warnings": [],
+        "replans": 0
+      },
+      "ts": "2026-11-19T04:05:09.412+00:00",
+      "seq": 17
+    },
+    {
+      "session_id": "default",
+      "type": "node_end",
+      "name": "검증",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.413+00:00",
+      "seq": 18
+    },
+    {
+      "session_id": "default",
+      "type": "node_start",
+      "name": "응답",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.415+00:00",
+      "seq": 19
+    },
+    {
+      "session_id": "default",
+      "type": "node_end",
+      "name": "응답",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.416+00:00",
+      "seq": 20
+    },
+    {
+      "session_id": "default",
+      "type": "node_start",
+      "name": "자동 진행",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.418+00:00",
+      "seq": 21
+    },
+    {
+      "session_id": "default",
+      "type": "tool_call",
+      "name": "youtube",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f",
+        "argument": "두부 스테이크"
+      },
+      "ts": "2026-11-19T04:05:09.423+00:00",
+      "seq": 22
+    },
+    {
+      "session_id": "default",
+      "type": "tool_result",
+      "name": "youtube",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f",
+        "ok": false,
+        "error": "MISSING_KEY"
+      },
+      "ts": "2026-11-19T04:05:09.424+00:00",
+      "seq": 23
+    },
+    {
+      "session_id": "default",
+      "type": "tool_call",
+      "name": "instagram",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f",
+        "argument": "두부 스테이크"
+      },
+      "ts": "2026-11-19T04:05:09.425+00:00",
+      "seq": 24
+    },
+    {
+      "session_id": "default",
+      "type": "tool_result",
+      "name": "instagram",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f",
+        "ok": false,
+        "error": "MISSING_KEY"
+      },
+      "ts": "2026-11-19T04:05:09.426+00:00",
+      "seq": 25
+    },
+    {
+      "session_id": "default",
+      "type": "node_end",
+      "name": "자동 진행",
+      "payload": {
+        "run_id": "4a0d0d92d13045e6a24243bd640d710f"
+      },
+      "ts": "2026-11-19T04:05:09.428+00:00",
+      "seq": 26
+    }
+  ]
+}

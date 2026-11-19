@@ -49,6 +49,7 @@ function compact(msg, r) {
     };
   if (p["운동 루틴"]) return { ...base, kind: "workout", routine: p["운동 루틴"], options: p["운동 선택지"] || [], note: p["안내"] || "" };
   if (p["검색어"] && p["직접 검색"]) return { ...base, kind: "shopping", term: p["검색어"], links: p["직접 검색"], items: Object.values(p["자료"] || {}).flatMap((x) => (x.ok ? x.data.slice(0, 3) : [])), budget: p["예산 안내"] || "" };
+  if (p["근거 문서"]) return { ...base, kind: "knowledge", answer: p["답변"] || "", evidence: p["근거 문서"], note: p["안내"] || "", source: p["출처"] || "" };
   if ((r["추적"] || []).some((e) => e.name === "건강 안내")) return { ...base, kind: "health", note: p["안내"] || "" };
   if (p["주간"]) return { ...base, kind: "weekly", days: p["주간"] };
   const reminder = (r["추적"] || []).some((e) => e.name === "알림 해석");
@@ -152,6 +153,10 @@ function agentCard(m) {
       ${(m.options || []).length ? `<p class="sec">다른 선택지</p><div class="picks">${m.options.map((o) => `<article class="pick"><div><strong>${esc(o.title)}</strong><small>${esc(o.why)} · ${esc(o.summary || "")}</small></div>${btn("이걸로", "wkApply", "chip", "", JSON.stringify(o.apply))}</article>`).join("")}</div>` : ""}`;
   } else if (m.kind === "shopping") {
     body += `<p><strong>${esc(m.term)}</strong> 상품을 찾아봤어요.</p>${m.items.length ? `<div class="picks">${m.items.map((x) => `<article class="pick"><div><strong>${x.url ? a(x.title, x.url) : esc(x.title)}</strong><small>${x.price_krw != null ? fmt(x.price_krw) + "원 · " : ""}${esc(x.merchant || "")}${x["100g당 가격"] ? " · 100g당 " + fmt(x["100g당 가격"]) + "원" : ""}</small></div></article>`).join("")}</div>` : '<p class="hint">쇼핑 API 키가 없어 상품 목록 대신 바로 검색할 수 있는 링크를 드려요.</p>'}<div class="cta">${Object.entries(m.links).map(([k, u]) => `<a class="btn alt" href="${esc(u)}" rel="noopener noreferrer">${esc(k)} ↗</a>`).join("")}</div>${m.budget ? `<p class="footnote">${esc(m.budget)}</p>` : ""}`;
+  } else if (m.kind === "knowledge") {
+    body += m.evidence.length
+      ? `<p class="sec">근거 문서</p><div class="evidence">${m.evidence.map((d) => `<article><strong>${esc(d.title)}</strong><p>${esc(d.excerpt)}</p><small>${a(d.source, d.url)} · 거리 ${d.distance}</small></article>`).join("")}</div><p class="footnote">${esc(m.source)} · 일반 생활 참고 정보예요.</p>`
+      : `<p>${esc(m.note)}</p>`;
   } else if (m.kind === "health") {
     body += `<p>${esc(m.note)}</p><div class="cta">${btn("건강 체크 입력", "healthForm", "btn", "heart-pulse")}${btn("기록 탭 열기", "journal", "btn alt")}</div>`;
   } else if (m.kind === "weekly") {

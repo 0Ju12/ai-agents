@@ -24,6 +24,10 @@ def call(tool, argument):
 
     if tool in EXTERNAL:
         return source_lookup(tool, argument)
+    if tool == "knowledge":
+        from knowledge import search
+
+        return search(argument)
     if tool in {"calendar_list", "calendar_register"}:
         from calendar_adapter import calendar
 

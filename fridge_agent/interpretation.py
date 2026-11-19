@@ -7,7 +7,7 @@ from domain.training import GOALS, LEVELS, MOVES
 from storage import today
 
 COMMANDS = set(
-    "추가 삭제 시간 부위 목표 추천 물 수면 외식 집밥 메뉴 대체 조리 섭취 요리코치 레시피 식품영양 검색 영양 도움말 입고 포장삭제 설정 운동완료 쇼핑 영상 헬스장 일정조회 일정등록 미국영양 운동자료 건강연동 시간대 주간계획 레시피저장 확인 장바구니담기 구매완료 장바구니삭제 사진식사 데모 영상링크 알림추가 알림삭제 알림토글 영양제복용 건강체크 건강반영 건강반영해제 내루틴저장 내루틴삭제".split()
+    "추가 삭제 시간 부위 목표 추천 물 수면 외식 집밥 메뉴 대체 조리 섭취 요리코치 레시피 식품영양 검색 영양 도움말 입고 포장삭제 설정 운동완료 쇼핑 영상 헬스장 일정조회 일정등록 미국영양 운동자료 건강연동 시간대 주간계획 레시피저장 확인 장바구니담기 구매완료 장바구니삭제 사진식사 데모 영상링크 알림추가 알림삭제 알림토글 영양제복용 건강체크 건강반영 건강반영해제 내루틴저장 내루틴삭제 질문".split()
 )
 
 
@@ -55,6 +55,15 @@ def workout(text):
     return Intent(action="운동", body=body_of(text), minutes=minutes, level=level_of(text))
 
 
+QUESTION = re.compile(r"(\?|얼마|몇\s*(시간|g|그램|잔|분|번|일|kcal)|어떻게|뭐야|뭔가요|무엇|왜|괜찮|해야\s*(해|돼|하나|할까)|돼\?|되나요?|될까|좋아\?|좋을까|맞아\?|차이)")
+NOT_QUESTION = re.compile(r"(먹고\s*싶|해\s*먹|만들어|하고\s*싶|알려\s*줘.*시|챙겨|사고\s*싶|추천|후보|루틴|짜\s*줘|식단|반영|기록|넣어|추가|빼\s*줘|먹을까|뭘\s*먹|뭐\s*먹|먹지|해\s*줘$|있어\.)")
+
+
+def is_question(text):
+    """외부 API 로는 답할 수 없는 상식 질문인지: '단백질 하루 권장량이 얼마야?'"""
+    return bool(QUESTION.search(text)) and not NOT_QUESTION.search(text)
+
+
 MORE = re.compile(r"(다른|딴|또 다른|더)\s*(추천|후보|메뉴|거|것|요리|레시피|선택지)")
 
 
@@ -63,6 +72,8 @@ def parse(text, emit, allow_command=True):
     arg = arg.strip()
     if MORE.search(text) and "운동" not in text:  # "다른 추천 후보 알려줘" → 되묻지 않고 다음 후보
         return Intent(action="추천", argument="더보기")
+    if is_question(text) and not (allow_command and command in COMMANDS and not re.search(r"[?]|얼마|몇|어떻게|왜", arg)):
+        return Intent(action="질문", argument=text[:300])  # F3022: 근거 문서 검색으로
     if allow_command and command in COMMANDS:
         return Intent(action=command, argument=arg)
     rule_workout = workout(text)
@@ -74,7 +85,7 @@ def parse(text, emit, allow_command=True):
         try:
             obj = gateway.decide(
                 "Planner",
-                "한국어 요청을 해석한다. action은 추천, 검색, 메뉴, 레시피, 식품영양, 쇼핑, 영상, 운동, 헬스장, 외식, 집밥, 확인 중 하나. 운동하고 싶다는 요청(부위·시간·숙련도)은 운동이고 minutes 는 운동 시간이다. 헬스장은 특정 지역의 헬스장을 찾을 때만 쓰고 argument 는 지역명이다. 재고에 있다고 명시한 재료만 add, 다 쓴 재료만 remove. 질문과 가정은 변경하지 않는다. 명시한 조건만 반환. 필드: action,argument,add,remove,minutes,goal,body,diet,day,start,end,area,budget_krw,level(초보·중급·숙련). 불명확하면 확인과 짧은 질문.",
+                "한국어 요청을 해석한다. action은 추천, 검색, 메뉴, 레시피, 식품영양, 쇼핑, 영상, 운동, 헬스장, 외식, 집밥, 질문, 확인 중 하나. 영양 권장량·식품 보관·운동 상식처럼 외부 API로 확인할 수 없는 질문은 질문이고 argument 는 질문 문장이다. 운동하고 싶다는 요청(부위·시간·숙련도)은 운동이고 minutes 는 운동 시간이다. 헬스장은 특정 지역의 헬스장을 찾을 때만 쓰고 argument 는 지역명이다. 재고에 있다고 명시한 재료만 add, 다 쓴 재료만 remove. 질문과 가정은 변경하지 않는다. 명시한 조건만 반환. 필드: action,argument,add,remove,minutes,goal,body,diet,day,start,end,area,budget_krw,level(초보·중급·숙련). 불명확하면 확인과 짧은 질문.",
                 {"text": text, "today": today().isoformat(), "goals": list(GOALS), "body": list(MOVES)},
             )
             intent = Intent.model_validate(obj)
@@ -93,6 +104,7 @@ def parse(text, emit, allow_command=True):
                 "쇼핑",
                 "영상",
                 "운동",
+                "질문",
                 "헬스장",
                 "외식",
                 "집밥",

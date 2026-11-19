@@ -6,7 +6,7 @@
     "expected": "두부 달걀찜",
     "actual": "두부 달걀찜",
     "pass": true,
-    "latency_ms": 49.5,
+    "latency_ms": 58.8,
     "calls": 1,
     "replans": 0
   },
@@ -17,7 +17,7 @@
     "expected": 1,
     "actual": 1,
     "pass": true,
-    "latency_ms": 45.4,
+    "latency_ms": 37.2,
     "calls": 3,
     "replans": 1
   },
@@ -28,7 +28,7 @@
     "expected": 3,
     "actual": 3,
     "pass": true,
-    "latency_ms": 67.8,
+    "latency_ms": 55.6,
     "calls": 5,
     "replans": 3
   },
@@ -39,7 +39,7 @@
     "expected": "MISSING_KEY",
     "actual": "MISSING_KEY",
     "pass": true,
-    "latency_ms": 28.2,
+    "latency_ms": 20.3,
     "calls": 1,
     "replans": 0
   },
@@ -50,7 +50,7 @@
     "expected": 0,
     "actual": 0,
     "pass": true,
-    "latency_ms": 10.6,
+    "latency_ms": 5.7,
     "calls": 0,
     "replans": 0
   },
@@ -61,7 +61,7 @@
     "expected": true,
     "actual": true,
     "pass": true,
-    "latency_ms": 29.9,
+    "latency_ms": 20.1,
     "calls": 1,
     "replans": 0
   }

@@ -51,3 +51,4 @@ Content-Type: application/json
 | `/api/data` | DELETE |
 | `/` | GET |
 | `/privacy` | GET |
+| knowledge | 로컬 벡터 DB(Chroma) | 식품·영양·운동·생활 안내 문서 근거 검색 | 질문 문장 | `[{id,title,excerpt,source,url,distance}]` · 실패: NO_INDEX, NO_RESULT, RAG_DEPENDENCY_MISSING |

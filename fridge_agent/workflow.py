@@ -24,7 +24,7 @@ class Flow(TypedDict, total=False):
 
 
 ANSWER_PROMPT = (
-    "결과 JSON 을 바탕으로 사용자 요청에 3~4문장 한국어로 답한다. 결과에 있는 값만 쓰고 숫자를 새로 만들지 않는다. "
+    "결과 JSON 을 바탕으로 사용자 요청에 3~4문장 한국어로 답한다. 결과에 있는 값만 쓰고 숫자를 새로 만들지 않는다. 근거 문단이 있으면 그 문단 내용만으로 답하고 출처 이름을 밝힌다. "
     "실패한 조회는 실패했다고 말한다. 의료 진단처럼 말하지 않는다. 마크다운 기호(**, #, -, 목록)를 쓰지 않고 평문으로 쓴다."
 )
 
@@ -40,7 +40,7 @@ def answer(request, output, emit):
         return output
     emit("llm_decision", "응답 문장", method="model", decision="answer", reason="확인된 결과 요약")
     text = re.sub(r"[*#`]+", "", text).strip()
-    return {"답변": text[:800], **output}
+    return {**output, "답변": text[:800]}
 
 
 # 요청 조건을 명세서 2.2 의 세 갈래로 나눈다: 기준(날짜·시각), 선호(목표·부위·식단·지역), 제약(시간·예산·끝 시각)
@@ -206,6 +206,13 @@ def execute(command, argument, local, emit, stock=(), events=None, request=None,
 
     def compose(s):
         results = s["results"]
+        if command == "질문" and "knowledge" in results:
+            r = results["knowledge"]
+            if not r["ok"]:
+                why = {"NO_RESULT": "한끼 안내 문서에서 관련 근거를 찾지 못했어요. 식단·운동·식품 안전·생활 습관 질문을 해 주세요.", "NO_INDEX": "근거 문서 색인을 만들지 못했어요.", "RAG_DEPENDENCY_MISSING": "근거 검색 라이브러리(chromadb)가 설치되지 않았어요."}
+                return {"output": {"안내": why.get(r["error"], "근거를 찾지 못했어요."), "근거 문서": [], "오류": r["error"]}}
+            top = r["data"][0]
+            return {"output": {"질문": argument, "근거 문서": r["data"], "출처": r["source"], "답변": f"{top['excerpt']} (출처: {top['source']})"}}
         if not results:
             message = {
                 "검색": "검색할 재료 이름을 알려주세요.",

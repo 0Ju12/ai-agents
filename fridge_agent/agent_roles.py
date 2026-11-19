@@ -46,11 +46,11 @@ def assess(events):
 
 
 # 모델 계획을 받는 명령: 핵심 작업(규칙)은 그대로 두고, 요청에 필요한 보조 도구를 모델이 고른다.
-PLANNABLE = {"추천", "외식", "집밥", "메뉴", "레시피", "식품영양"}
+PLANNABLE = {"추천", "외식", "집밥", "메뉴", "레시피", "식품영양", "질문"}
 # 모델이 고를 수 있는 보조 도구. 후보 탐색(search/detail)은 재계획 루프가 맡고, 일정 등록은 사용자 확인 후에만 한다.
 EXTRA_TOOLS = (
     "kr_recipe", "kr_nutrition", "nutrition", "usda", "naver", "coupang",
-    "youtube", "instagram", "gyms", "wger", "calendar_list",
+    "youtube", "instagram", "gyms", "wger", "calendar_list", "knowledge",
 )
 FROM_RECIPE = "$부족재료"  # 앞 단계(kr_recipe) 결과에서 재고에 없는 재료로 바꿔 넣는 자리표시
 MAX_TASKS = 6
@@ -168,6 +168,7 @@ class Planner:
         direct = {
             "검색": "search",
             "레시피": "kr_recipe",
+            "질문": "knowledge",
             "식품영양": "kr_nutrition",
             "영양": "nutrition",
             "일정조회": "calendar_list",

@@ -19,3 +19,7 @@ homes/
 google-calendar.json
 .env.*
 !.env.example
+
+# 런타임 생성물 (RAG 색인, 미디어 캐시)
+rag_chroma/
+**/media/
