@@ -181,6 +181,14 @@ const metrics = [
   ["water_ml", "물", "mL", "droplet", "blue"],
   ["sleep_hours", "수면", "시간", "moon", ""],
 ];
+function intakeList() {
+  // 오늘 먹은 것: 사진·조리 섭취 기록을 하나씩 보여 주고 잘못 기록한 것은 지울 수 있게 한다
+  const list = st["오늘 기록"]?.intake || [];
+  if (!list.length) return '<p class="hint">오늘 먹은 음식을 사진으로 기록하거나, 조리한 음식을 섭취로 기록해 보세요.</p>';
+  return `<p class="sec-label">오늘 먹은 것 (${list.length})</p>${list
+    .map((x, i) => `<div class="list-line"><div><strong>${esc(x.title)}${x.grams ? ` · ${fmt(x.grams)}g` : ""}</strong><small>${x.nutrients?.kcal != null ? `${fmt(x.nutrients.kcal)}kcal · 단백질 ${fmt(x.nutrients.protein_g)}g` : "영양 미확인"}${x.source ? " · " + esc(x.source) : ""}</small></div>${btn("지우기", "intakeDelete", "linkbtn", "", i)}</div>`)
+    .join("")}`;
+}
 function metricRows() {
   return metrics
     .map(([k, n, u, i, c]) => {
@@ -278,12 +286,12 @@ function journalView() {
     max = Math.max(...w.map((x) => x.totals.water_ml.value || 0), 1);
   return (
     heading("journal", "직접 기록한 값과 연결한 건강 데이터의 출처를 함께 확인해요.") +
-    `<div class="panelgrid"><div class="stack"><section class="card intake">${section("오늘의 섭취와 수면")}${metricRows()}<div class="btnbar">${btn("물 더하기", "water", "btn", "droplet")}${btn("수면 기록", "sleep", "btn alt", "moon")}${btn("식사 사진", "photoMeal", "btn alt", "camera")}</div></section><section class="card">${section("건강 체크 · 인바디·검진")}<div id="health-card"><p class="hint" role="status">불러오는 중…</p></div></section><section class="card">${section("물·영양제 알림")}<div id="reminders"><p class="hint" role="status">알림을 불러오는 중…</p></div></section><section class="card">${section("이번 주 수분 기록")}<div class="week">${w.map((x) => `<div><small>${fmt(x.totals.water_ml.value)}</small><i style="height:${Math.max(2, (45 * (x.totals.water_ml.value || 0)) / max)}px"></i><small>${x.day.slice(5)}</small></div>`).join("")}</div><p class="hint">단위 mL · 대시는 기록 전</p></section></div>
+    `<div class="panelgrid"><div class="stack"><section class="card intake">${section("오늘의 섭취와 수면")}${metricRows()}${intakeList()}<div class="btnbar">${btn("물 더하기", "water", "btn", "droplet")}${btn("수면 기록", "sleep", "btn alt", "moon")}${btn("식사 사진", "photoMeal", "btn alt", "camera")}</div></section><section class="card">${section("건강 체크 · 인바디·검진")}<div id="health-card"><p class="hint" role="status">불러오는 중…</p></div></section><section class="card">${section("물·영양제 알림")}<div id="reminders"><p class="hint" role="status">알림을 불러오는 중…</p></div></section><section class="card">${section("이번 주 수분 기록")}<div class="week">${w.map((x) => `<div><small>${fmt(x.totals.water_ml.value)}</small><i style="height:${Math.max(2, (45 * (x.totals.water_ml.value || 0)) / max)}px"></i><small>${x.day.slice(5)}</small></div>`).join("")}</div><p class="hint">단위 mL · 대시는 기록 전</p></section></div>
  <div class="stack"><section class="card soft">${section("나의 영양 목표", "settings", "설정")}${j.hints.length ? j.hints.map((h) => `<p><strong>${esc(h.label)}</strong> · 목표까지 ${fmt(h.remaining)}${h.label === "수분" ? "mL" : "g"}</p><p class="muted">${esc(h.advice)}</p>`).join("") : '<p class="muted">목표와 섭취량을 기록하면 남은 양을 계산해요.</p>'}</section><section class="card">${section("조리시간 분석")}<div class="facts"><div class="fact"><small>조리 횟수</small><b>${j.metrics.cooks}<span>회</span></b></div><div class="fact"><small>평균 오차</small><b>${fmt(j.metrics.planned_vs_actual_mae_min)}<span>분</span></b></div></div><p class="hint">메뉴별 최근 조리 기록 5건을 다음 예상 시간에 반영해요.</p></section><section class="card">${section("데이터 관리")}<div class="btnbar">${btn("건강 데이터 연결", "health", "btn alt", "heart-pulse")}${btn("계획과 일정", "plans", "btn alt", "calendar-days")}${btn("실행 이력", "logs", "btn alt", "notebook-text")}</div><p class="footnote">일상 생활을 위한 참고 정보입니다. 개인의 치료나 섭취 처방은 의료진과 상의하세요.</p><details><summary>내 데이터</summary><div class="btnbar"><a href="/api/export" download="hankki.json" class="chip">내 데이터 내려받기</a>${btn("기록 삭제", "erase", "chip danger")}<a href="/privacy" class="chip">개인정보 안내</a></div></details></section></div></div>`
   );
 }
 function render() {
-  if (!st) return;
+  if (!st || !catalog) return; // 시작 중(목록을 받기 전)에 탭을 눌러도 오류 없이 기다린다
   const k = route();
   document.title = names[k] + " · 한끼";
   $("#date").textContent = dateLabel(st["날짜"]);

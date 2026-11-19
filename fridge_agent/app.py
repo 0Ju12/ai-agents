@@ -251,6 +251,15 @@ def record_note(command, arg, intent, params, state, day):
             return f"{r['title']} 알림을 만들었어요 · {when}. 기록 탭에서 바꿀 수 있어요."
     if command == "운동완료":
         return "운동을 기록했어요. 체감 난이도를 다음 루틴에 반영할게요."
+    if command == "사진식사":
+        n = len(params.get("items", []))
+        recent = daily.get("intake", [])[-n:] if n else []
+        kcal = sum((x["nutrients"] or {}).get("kcal") or 0 for x in recent)
+        protein = sum((x["nutrients"] or {}).get("protein_g") or 0 for x in recent)
+        unknown = [x["title"] for x in recent if x.get("unverified")]
+        return f"식사 {n}가지를 기록했어요 · 약 {kcal:.0f}kcal, 단백질 {protein:.1f}g" + (f" (영양 미확인: {', '.join(unknown)})" if unknown else "")
+    if command == "섭취삭제":
+        return "섭취 기록을 지웠어요."
     return None
 
 
@@ -388,17 +397,21 @@ def change(state, cmd, arg, params, day, emit):
             name, grams = canonical(str(x.get("name", ""))), float(x.get("grams") or 0)
             if not 1 <= len(name) <= 40 or not 1 <= grams <= 3000:
                 raise ValueError("음식 이름과 1~3000g 사이의 양을 확인하세요.")
-            checked.append({"name": name, "grams": grams})
-        facts = photos.nutrition(checked, kitchen_catalog(state)[1])
-        daily.setdefault("eaten", []).append(" · ".join(x["name"] for x in checked))
-        daily.setdefault("intake", []).append(
-            {
-                "title": "사진 기록 · " + ", ".join(x["name"] for x in checked),
-                "nutrients": facts["합계"] or {},
-                "source": "사진 후보를 사용자가 확인 · " + facts["출처"],
-                "unverified": facts["미확인"],
-            }
-        )
+            parts = [p for p in (x.get("parts") or [])[:10] if isinstance(p, dict) and 1 <= float(p.get("grams") or 0) <= 2000 and 1 <= len(str(p.get("name", ""))) <= 40]
+            checked.append({"name": name, "grams": grams, "parts": [{"name": str(p["name"]), "grams": float(p["grams"])} for p in parts]})
+        meals, refs = kitchen_catalog(state)
+        facts = photos.nutrition(checked, refs, meals)
+        daily.setdefault("eaten", []).extend(x["name"] for x in checked)
+        for row in facts["항목"]:  # 음식마다 따로 기록해 하나씩 확인·삭제할 수 있게 한다
+            daily.setdefault("intake", []).append(
+                {
+                    "title": row["이름"],
+                    "grams": row["분량(g)"],
+                    "nutrients": row["영양"] or {},
+                    "source": "사진 기록 · " + row["근거"],
+                    "unverified": row["영양"] is None,
+                }
+            )
     elif cmd == "알림추가":
         reminders.add(state, params)
     elif cmd == "알림삭제":
@@ -421,6 +434,11 @@ def change(state, cmd, arg, params, day, emit):
         autopilot.seed_demo(state, day)
     elif cmd == "영상링크":
         autopilot.add_link(state, params.get("menu"), params.get("url"))
+    elif cmd == "섭취삭제":
+        entries = daily.get("intake", [])
+        if not arg.isdecimal() or not 0 <= int(arg) < len(entries):
+            raise ValueError("지울 섭취 기록을 선택하세요.")
+        entries.pop(int(arg))
     elif cmd == "건강연동":
         health_import(daily, params, day)
     elif cmd == "운동완료":
@@ -742,7 +760,7 @@ class DemoRequest(BaseModel):
 
 @app.post("/api/demo")
 def demo(body: DemoRequest):
-    """예시 재료로 냉장고 채우기 (소비기한이 다른 18가지)."""
+    """예시 재료로 냉장고 채우기 (소비기한이 제각각인 예시 재료)."""
     return run("데모", session_id=body.session_id)
 
 
@@ -911,7 +929,8 @@ def photo(body: PhotoRequest):
     emit, steps = tracer(body.session_id)
     emit("node_start", "사진 분석")
     try:
-        result = photos.analyze(body.kind, body.image, kitchen_catalog(state)[1], snapshot(state)["냉장고"], emit)
+        meals, refs = kitchen_catalog(state)
+        result = photos.analyze(body.kind, body.image, refs, snapshot(state)["냉장고"], emit, meals)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     emit("node_end", "사진 분석")

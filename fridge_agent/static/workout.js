@@ -194,7 +194,7 @@ function wkBeginSet() {
   wkBeat = 0;
   wkBeatLeft = s.tempo?.[0] || 2;
   wkLeft = targetHold(s);
-  say(s.kind === "exercise" ? `${wkSet}세트 시작! ${beatWords(s)[0]}` : `${s.name} 시작!`);
+  say(s.kind === "exercise" ? (s.mode === "reps" ? `${wkSet}세트 시작! ${beatWords(s)[0]}` : `${wkSet}세트 시작! ${targetHold(s)}초 동안 ${s.mode === "hold" ? "버텨요" : "이어가요"}.`) : `${s.name} 시작!`);
   wkRun();
   wkPaint();
 }
@@ -347,7 +347,10 @@ Object.assign(action, {
     );
   },
   wkApply: async (raw) => {
-    const r = await api("/api/chat", "POST", { message: "설정", params: JSON.parse(raw), request_id: uid() });
+    const params = JSON.parse(raw),
+      cur = st["운동 계획"];
+    if (Object.entries(params).every(([k, v]) => (k === "exercise_minutes" ? cur.minutes : cur[k]) === v)) return note("이미 선택된 조건이에요.");
+    const r = await api("/api/chat", "POST", { message: "설정", params, request_id: uid() });
     st = { ...r, 계획: r["현재 추천"] };
     await loadWorkout(true);
     render();

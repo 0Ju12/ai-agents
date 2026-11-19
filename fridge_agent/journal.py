@@ -5,17 +5,20 @@ from domain.training import routine
 
 
 def health_totals(daily):
+    """하루 합계. 영양을 모르는 기록이 있어도 아는 값은 더하고, 몇 건이 빠졌는지 함께 알린다."""
     entries = daily.get("intake", [])
-    manual = {}
+    manual, partial = {}, {}
     for k in FIELDS:
         vals = [x.get("nutrients", {}).get(k) for x in entries]
-        manual[k] = round(sum(vals), 1) if vals and all(v is not None for v in vals) else None
+        known = [v for v in vals if v is not None]
+        manual[k] = round(sum(known), 1) if known else None
+        partial[k] = len(vals) - len(known)
     manual.update({k: daily.get(k) for k in ("water_ml", "sleep_hours", "exercise_minutes")})
     device = daily.get("health_connect", {})
     return {
         k: {
             "value": device.get(k, v),
-            "source": "Health Connect" if k in device else "직접 기록" if v is not None else None,
+            "source": "Health Connect" if k in device else (("직접 기록" + (f" · {partial[k]}건 미확인" if partial.get(k) else "")) if v is not None else (f"{partial[k]}건 영양 미확인" if partial.get(k) else None)),
         }
         for k, v in manual.items()
     }

@@ -257,8 +257,10 @@ const action = {
     ),
   uncart: (n) => send("장바구니삭제 " + n),
   importRecipe: (id) => {
-    const m = last?.["계획"]?.["조회"]?.data?.find((x) => String(x.id) === String(id));
-    if (!m) return;
+    let m = last?.["계획"]?.["조회"]?.data?.find((x) => String(x.id) === String(id));
+    if (!m && typeof guide !== "undefined" && guide && String(guide["출처"] || "").includes("#" + id))
+      m = { id, 메뉴: guide["메뉴"], "재료·분량": guide["재료 합계"].map((x) => x["이름"]).join(", ") }; // 조리 모드에서 연 국내 레시피
+    if (!m) return note("국내 레시피를 다시 조회한 뒤 담아 주세요.");
     sheet(
       "내 식단에 레시피 담기",
       form(
@@ -518,7 +520,7 @@ async function start() {
       // 처음 실행: 소비기한이 다른 예시 재료로 냉장고를 채운다
       const r = await api("/api/demo", "POST", {});
       st = { ...r, 계획: r["현재 추천"] };
-      setTimeout(() => note("예시 재료 18가지를 냉장고에 넣었어요. 상황을 말해 보세요."), 300);
+      setTimeout(() => note(`예시 재료 ${st["포장"].length}가지를 냉장고에 넣었어요. 상황을 말해 보세요.`), 300);
     }
     catalog = await api("/api/catalog");
     render();

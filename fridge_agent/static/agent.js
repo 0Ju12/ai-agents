@@ -326,7 +326,7 @@ Object.assign(action, {
   },
   agentDetail: (id) => results[id] && showResult(findMsg(id)?.msg || "결과", results[id]),
   demo: async () => {
-    if (!confirm("지금 냉장고와 장바구니를 비우고 예시 재료 18가지로 채울까요?")) return;
+    if (!confirm("지금 냉장고와 장바구니를 비우고 예시 재료로 채울까요?")) return;
     const r = await api("/api/demo", "POST", {});
     st = { ...r, 계획: r["현재 추천"] };
     render();

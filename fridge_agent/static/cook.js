@@ -249,7 +249,9 @@ function photoReview(r) {
   const rows = r["후보"]
     .map(
       (x, i) =>
-        `<div class="list-line"><label class="check"><input type="checkbox" name="pick" value="${i}" ${x.confidence >= 0.4 ? "checked" : ""}> <strong>${esc(x.name)}</strong> <small>확신도 ${Math.round(x.confidence * 100)}%${x["보유"] ? " · 이미 보유" : ""}${meal && !x["영양 참조"] ? " · 영양 참조 없음" : ""}</small></label>${meal ? `<input class="grams" name="g${i}" type="number" min="1" max="3000" value="${x.grams ?? ""}" placeholder="g" aria-label="${esc(x.name)} 양(g)" required>` : `<input type="hidden" name="n${i}" value="${esc(x.name)}">`}</div>`,
+        `<div class="photo-row"><label class="check"><input type="checkbox" name="pick" value="${i}" ${x.confidence >= 0.4 ? "checked" : ""} aria-label="${esc(x.name)} 선택"></label>
+          <div class="photo-fields"><input name="n${i}" value="${esc(x.name)}" maxlength="40" aria-label="음식 이름" required>${meal ? `<input class="grams" name="g${i}" type="number" min="1" max="3000" value="${x.grams ?? ""}" placeholder="g" aria-label="${esc(x.name)} 양(g)" required><span>g</span>` : ""}</div>
+          <small>확신도 ${Math.round(x.confidence * 100)}%${x["보유"] ? " · 이미 보유" : ""}${meal ? ` · ${esc(x["근거"] || "")}${x["예상 kcal"] != null ? ` · 약 ${fmt(x["예상 kcal"])}kcal` : ""}` : ""}</small></div>`,
     )
     .join("");
   return `<form class="form" data-form="photoSave" data-kind="${r.kind}">${rows || '<p class="empty">찾은 후보가 없어요.</p>'}${r["메모"] ? `<p class="hint">${esc(r["메모"])}</p>` : ""}
@@ -332,10 +334,23 @@ Object.assign(action, {
     }, 1000);
     paint();
   },
-  cookDone: () => {
+  cookDone: async () => {
     stopClock();
     stopVoice();
+    // 조리 모드에서 본 레시피로 기록한다(오늘 추천 메뉴가 아니라)
+    if (guideReq?.recipe_id) {
+      note("국내 레시피는 ‘내 식단에 담기’로 1인분 재료를 확인한 뒤 조리를 기록할 수 있어요.");
+      return action.importRecipe?.(guideReq.recipe_id);
+    }
+    const r = await api("/api/chat", "POST", { message: "메뉴 " + guide["메뉴"], request_id: uid() });
+    st = { ...r, 계획: r["현재 추천"] };
     action.cook();
+    const s = $("#sheet-body input[name=servings]");
+    if (s) s.value = guide["인분"];
+  },
+  intakeDelete: async (i) => {
+    if (!confirm("이 섭취 기록을 지울까요?")) return;
+    await send("섭취삭제 " + i, {}, false);
   },
   photoMeal: () => {
     photoKind = "meal";
@@ -359,11 +374,20 @@ Object.assign(forms, {
   photoSave: async (v, f) => {
     const picks = [...f.querySelectorAll("input[name=pick]:checked")].map((x) => Number(x.value));
     if (!picks.length) throw Error("기록할 후보를 선택하세요.");
-    if (f.dataset.kind === "meal")
-      return send("사진식사", {
-        items: picks.map((i) => ({ name: photoResult["후보"][i].name, grams: Number(f.elements["g" + i].value) })),
+    const nameOf = (i) => (f.elements["n" + i]?.value || photoResult["후보"][i].name).trim();
+    if (f.dataset.kind === "meal") {
+      const r = await api("/api/chat", "POST", {
+        message: "사진식사",
+        params: { items: picks.map((i) => ({ name: nameOf(i), grams: Number(f.elements["g" + i].value), parts: nameOf(i) === photoResult["후보"][i].name ? photoResult["후보"][i].parts || [] : [] })) },
+        request_id: uid(),
       });
-    return send("입고", { name: picks.map((i) => photoResult["후보"][i].name).join(", "), quantity: null });
+      st = { ...r, 계획: r["현재 추천"] };
+      close();
+      go("journal");
+      return note(r["계획"]["안내"] || "식사를 기록했어요.");
+    }
+    await send("입고", { name: picks.map(nameOf).join(", "), quantity: null });
+    go("pantry");
   },
   barcode: async (v, f) => {
     const code = (await scanBarcode(f.querySelector("input[type=file]")).catch(() => "")) || (v.code || "").trim();

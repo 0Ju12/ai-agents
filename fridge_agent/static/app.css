@@ -1394,3 +1394,11 @@ dialog.cook-full .cook-text { font-size: 1.35rem; }
 .evidence article { border-left: 3px solid var(--lime); padding: 4px 10px; background: #fafbf3; border-radius: 0 10px 10px 0; }
 .evidence p { margin: 2px 0; font-size: 14px; }
 .evidence small { color: var(--muted); }
+.photo-row { display: grid; grid-template-columns: auto 1fr; gap: 4px 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.photo-row small { grid-column: 2; color: var(--muted); }
+.photo-fields { display: flex; gap: 6px; align-items: center; }
+.photo-fields input:first-child { flex: 1; min-width: 0; }
+.photo-fields .grams { width: 76px; }
+@media (max-width: 760px) {
+  main { padding-bottom: calc(96px + env(safe-area-inset-bottom)); } /* 하단 메뉴에 내용이 가리지 않게 */
+}

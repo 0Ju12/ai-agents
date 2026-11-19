@@ -53,9 +53,9 @@
       "type": "node_start",
       "name": "분석",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.643+00:00",
+      "ts": "2026-11-19T04:45:08.252+00:00",
       "seq": 1
     },
     {
@@ -63,12 +63,12 @@
       "type": "llm_decision",
       "name": "요청 분류",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee",
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da",
         "method": "rule",
         "decision": "검색",
         "reason": "요청과 변경할 조건 확인"
       },
-      "ts": "2026-11-19T04:03:27.644+00:00",
+      "ts": "2026-11-19T04:45:08.253+00:00",
       "seq": 2
     },
     {
@@ -76,9 +76,9 @@
       "type": "node_end",
       "name": "분석",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.645+00:00",
+      "ts": "2026-11-19T04:45:08.254+00:00",
       "seq": 3
     },
     {
@@ -86,9 +86,9 @@
       "type": "node_start",
       "name": "분석",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.649+00:00",
+      "ts": "2026-11-19T04:45:08.259+00:00",
       "seq": 4
     },
     {
@@ -96,7 +96,7 @@
       "type": "conditions",
       "name": "요청 조건",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee",
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da",
         "command": "검색",
         "argument": "달걀",
         "기준": {},
@@ -104,7 +104,7 @@
         "제약": {},
         "tool_needed": true
       },
-      "ts": "2026-11-19T04:03:27.650+00:00",
+      "ts": "2026-11-19T04:45:08.260+00:00",
       "seq": 5
     },
     {
@@ -112,9 +112,9 @@
       "type": "node_end",
       "name": "분석",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.651+00:00",
+      "ts": "2026-11-19T04:45:08.260+00:00",
       "seq": 6
     },
     {
@@ -122,9 +122,9 @@
       "type": "node_start",
       "name": "계획",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.652+00:00",
+      "ts": "2026-11-19T04:45:08.261+00:00",
       "seq": 7
     },
     {
@@ -132,7 +132,7 @@
       "type": "plan",
       "name": "작업 목록",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee",
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da",
         "tools": [
           "search"
         ],
@@ -146,7 +146,7 @@
         ],
         "reason": "요청과 입력 조건에 필요한 작업 선택"
       },
-      "ts": "2026-11-19T04:03:27.653+00:00",
+      "ts": "2026-11-19T04:45:08.262+00:00",
       "seq": 8
     },
     {
@@ -154,9 +154,9 @@
       "type": "node_end",
       "name": "계획",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.653+00:00",
+      "ts": "2026-11-19T04:45:08.263+00:00",
       "seq": 9
     },
     {
@@ -164,9 +164,9 @@
       "type": "node_start",
       "name": "실행",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.655+00:00",
+      "ts": "2026-11-19T04:45:08.264+00:00",
       "seq": 10
     },
     {
@@ -174,10 +174,10 @@
       "type": "tool_call",
       "name": "search",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee",
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da",
         "argument": "달걀"
       },
-      "ts": "2026-11-19T04:03:27.655+00:00",
+      "ts": "2026-11-19T04:45:08.265+00:00",
       "seq": 11
     },
     {
@@ -185,14 +185,14 @@
       "type": "tool_result",
       "name": "search",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee",
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da",
         "ok": true,
         "error": null,
         "source": "고정 시험 자료",
         "count": 6,
         "ms": 0
       },
-      "ts": "2026-11-19T04:03:27.656+00:00",
+      "ts": "2026-11-19T04:45:08.266+00:00",
       "seq": 12
     },
     {
@@ -200,9 +200,9 @@
       "type": "node_end",
       "name": "실행",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.657+00:00",
+      "ts": "2026-11-19T04:45:08.267+00:00",
       "seq": 13
     },
     {
@@ -210,9 +210,9 @@
       "type": "node_start",
       "name": "판정",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.658+00:00",
+      "ts": "2026-11-19T04:45:08.268+00:00",
       "seq": 14
     },
     {
@@ -220,7 +220,7 @@
       "type": "plan",
       "name": "작업 목록",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee",
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da",
         "tools": [
           "detail"
         ],
@@ -234,7 +234,7 @@
         ],
         "reason": "기존 후보 목록 재사용"
       },
-      "ts": "2026-11-19T04:03:27.659+00:00",
+      "ts": "2026-11-19T04:45:08.269+00:00",
       "seq": 15
     },
     {
@@ -242,9 +242,9 @@
       "type": "node_end",
       "name": "판정",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.660+00:00",
+      "ts": "2026-11-19T04:45:08.270+00:00",
       "seq": 16
     },
     {
@@ -252,9 +252,9 @@
       "type": "node_start",
       "name": "실행",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.661+00:00",
+      "ts": "2026-11-19T04:45:08.271+00:00",
       "seq": 17
     },
     {
@@ -262,10 +262,10 @@
       "type": "tool_call",
       "name": "detail",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee",
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da",
         "argument": "0"
       },
-      "ts": "2026-11-19T04:03:27.662+00:00",
+      "ts": "2026-11-19T04:45:08.272+00:00",
       "seq": 18
     },
     {
@@ -273,14 +273,14 @@
       "type": "tool_result",
       "name": "detail",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee",
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da",
         "ok": true,
         "error": null,
         "source": "고정 시험 자료",
         "count": null,
         "ms": 0
       },
-      "ts": "2026-11-19T04:03:27.662+00:00",
+      "ts": "2026-11-19T04:45:08.273+00:00",
       "seq": 19
     },
     {
@@ -288,9 +288,9 @@
       "type": "node_end",
       "name": "실행",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.663+00:00",
+      "ts": "2026-11-19T04:45:08.273+00:00",
       "seq": 20
     },
     {
@@ -298,9 +298,9 @@
       "type": "node_start",
       "name": "판정",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.664+00:00",
+      "ts": "2026-11-19T04:45:08.274+00:00",
       "seq": 21
     },
     {
@@ -308,14 +308,14 @@
       "type": "replan",
       "name": "다음 상세 후보",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee",
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da",
         "attempt": 1,
         "reason": "미확인 재료 또는 상세 조회 실패",
         "reused": [
           "search"
         ]
       },
-      "ts": "2026-11-19T04:03:27.665+00:00",
+      "ts": "2026-11-19T04:45:08.275+00:00",
       "seq": 22
     },
     {
@@ -323,7 +323,7 @@
       "type": "plan",
       "name": "작업 목록",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee",
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da",
         "tools": [
           "detail"
         ],
@@ -337,7 +337,7 @@
         ],
         "reason": "기존 후보 목록 재사용"
       },
-      "ts": "2026-11-19T04:03:27.666+00:00",
+      "ts": "2026-11-19T04:45:08.276+00:00",
       "seq": 23
     },
     {
@@ -345,9 +345,9 @@
       "type": "node_end",
       "name": "판정",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.667+00:00",
+      "ts": "2026-11-19T04:45:08.277+00:00",
       "seq": 24
     },
     {
@@ -355,9 +355,9 @@
       "type": "node_start",
       "name": "실행",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.668+00:00",
+      "ts": "2026-11-19T04:45:08.278+00:00",
       "seq": 25
     },
     {
@@ -365,10 +365,10 @@
       "type": "tool_call",
       "name": "detail",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee",
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da",
         "argument": "1"
       },
-      "ts": "2026-11-19T04:03:27.669+00:00",
+      "ts": "2026-11-19T04:45:08.279+00:00",
       "seq": 26
     },
     {
@@ -376,14 +376,14 @@
       "type": "tool_result",
       "name": "detail",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee",
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da",
         "ok": true,
         "error": null,
         "source": "고정 시험 자료",
         "count": null,
         "ms": 0
       },
-      "ts": "2026-11-19T04:03:27.670+00:00",
+      "ts": "2026-11-19T04:45:08.280+00:00",
       "seq": 27
     },
     {
@@ -391,9 +391,9 @@
       "type": "node_end",
       "name": "실행",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.671+00:00",
+      "ts": "2026-11-19T04:45:08.281+00:00",
       "seq": 28
     },
     {
@@ -401,9 +401,9 @@
       "type": "node_start",
       "name": "판정",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.672+00:00",
+      "ts": "2026-11-19T04:45:08.282+00:00",
       "seq": 29
     },
     {
@@ -411,9 +411,9 @@
       "type": "node_end",
       "name": "판정",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.672+00:00",
+      "ts": "2026-11-19T04:45:08.283+00:00",
       "seq": 30
     },
     {
@@ -421,9 +421,9 @@
       "type": "node_start",
       "name": "검증",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.674+00:00",
+      "ts": "2026-11-19T04:45:08.284+00:00",
       "seq": 31
     },
     {
@@ -431,12 +431,12 @@
       "type": "evaluation",
       "name": "실행 검증",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee",
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da",
         "status": "정상",
         "warnings": [],
         "replans": 1
       },
-      "ts": "2026-11-19T04:03:27.674+00:00",
+      "ts": "2026-11-19T04:45:08.285+00:00",
       "seq": 32
     },
     {
@@ -444,9 +444,9 @@
       "type": "node_end",
       "name": "검증",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.675+00:00",
+      "ts": "2026-11-19T04:45:08.286+00:00",
       "seq": 33
     },
     {
@@ -454,9 +454,9 @@
       "type": "node_start",
       "name": "응답",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.677+00:00",
+      "ts": "2026-11-19T04:45:08.287+00:00",
       "seq": 34
     },
     {
@@ -464,9 +464,9 @@
       "type": "node_end",
       "name": "응답",
       "payload": {
-        "run_id": "85b063b8a9094d91bdd548edec1a04ee"
+        "run_id": "3449e38ed53e4d8da65d35845e0c05da"
       },
-      "ts": "2026-11-19T04:03:27.677+00:00",
+      "ts": "2026-11-19T04:45:08.288+00:00",
       "seq": 35
     }
   ]
