@@ -53,15 +53,22 @@ def model_request(endpoint, body):
 
 
 def model_name():
-    return os.getenv("GMS_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-5.4-nano"
+    return os.getenv("GMS_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-6.1-sol"
 
 
 def chat_model():
-    """2일차 실습과 같은 방식: GMS 주소를 base_url 로 둔 ChatOpenAI."""
+    """2일차 실습과 같은 방식: GMS 주소를 base_url 로 둔 ChatOpenAI. 기본은 Responses API(/v1/responses)."""
     key, url = config()
     if not key:
         raise ValueError("모델 키가 필요합니다.")
-    return ChatOpenAI(model=model_name(), api_key=key, base_url=url, timeout=12, max_retries=1)
+    return ChatOpenAI(
+        model=model_name(),
+        api_key=key,
+        base_url=url,
+        timeout=30,
+        max_retries=1,
+        use_responses_api=os.getenv("GMS_RESPONSES_API", "1") == "1",
+    )
 
 
 def _system(role, prompt):
@@ -87,7 +94,7 @@ def decide(role, prompt, obj):
             ("user", json.dumps(obj, ensure_ascii=False)),
         ],
     )
-    result = json.loads(reply.content)
+    result = json.loads(reply.text)
     if not isinstance(result, dict):
         raise ValueError("모델 응답 형식 오류")
     return result
@@ -107,7 +114,7 @@ def write(role, prompt, obj):
         chat_model,
         [("system", _system(role, prompt)), ("user", json.dumps(obj, ensure_ascii=False, default=str))],
     )
-    return str(reply.content).strip()
+    return str(reply.text).strip()
 
 
 def embed(text):

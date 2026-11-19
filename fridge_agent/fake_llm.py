@@ -36,5 +36,5 @@ class FakeChat:
         if self._mode == "structured":
             return self._schema.model_validate(self._plan or {})
         if self._mode == "json":
-            return SimpleNamespace(content=json.dumps(self._decide, ensure_ascii=False))
-        return SimpleNamespace(content=self._answer)
+            return SimpleNamespace(text=json.dumps(self._decide, ensure_ascii=False))
+        return SimpleNamespace(text=self._answer)
