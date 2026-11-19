@@ -87,7 +87,7 @@ def callback(state: str, code: str = ""):
     except (OSError, ValueError, KeyError):
         raise HTTPException(502, "Google 캘린더 승인을 확인하세요.") from None
     temp = token_file().with_suffix("." + secrets.token_hex(8) + ".tmp")
-    with os.fdopen(os.open(temp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), "w") as f:
+    with os.fdopen(os.open(temp, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600), "w", encoding="utf-8") as f:
         json.dump({"client_id": client, "client_secret": secret, "refresh_token": token}, f)
     os.replace(temp, token_file())
     return RedirectResponse("/#journal", status_code=303)

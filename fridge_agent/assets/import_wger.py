@@ -34,7 +34,7 @@ def parse(data):
 
 if __name__ == "__main__":
     data = (
-        json.loads(pathlib.Path(sys.argv[1]).read_text())
+        json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
         if len(sys.argv) > 1
         else json.load(
             urlopen(
@@ -45,4 +45,4 @@ if __name__ == "__main__":
             )
         )
     )
-    OUTPUT.write_text(json.dumps(parse(data), ensure_ascii=False, indent=2) + "\n")
+    OUTPUT.write_text(json.dumps(parse(data), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

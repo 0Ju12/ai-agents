@@ -78,13 +78,13 @@ def manifest_path():
 
 def manifest():
     try:
-        return json.loads(manifest_path().read_text())
+        return json.loads(manifest_path().read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
 
 
 def save_manifest(data):
-    manifest_path().write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    manifest_path().write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def clip_file(recipe, step):

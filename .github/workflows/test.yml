@@ -2,7 +2,13 @@ name: tests
 on: [push, pull_request]
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]  # Windows 기본 인코딩(cp949 등)에서도 한글 파일을 읽는지 확인
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: "0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

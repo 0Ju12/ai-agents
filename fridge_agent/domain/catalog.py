@@ -35,8 +35,8 @@ def canonical(value):
 
 
 def load_catalog(path):
-    ingredients = json.loads((ASSETS / "nutrition.json").read_text())
-    recipes = json.loads((ASSETS / "recipes.json").read_text())
+    ingredients = json.loads((ASSETS / "nutrition.json").read_text(encoding="utf-8"))
+    recipes = json.loads((ASSETS / "recipes.json").read_text(encoding="utf-8"))
     with sqlite3.connect(path) as db:
         db.executescript("""
         CREATE TABLE IF NOT EXISTS ingredients(name TEXT PRIMARY KEY, fdc_id INTEGER, reference TEXT NOT NULL);
@@ -50,7 +50,7 @@ def load_catalog(path):
             "INSERT OR REPLACE INTO exercises VALUES(?,?,?)",
             [
                 (e["id"], e["category"], json.dumps(e, ensure_ascii=False))
-                for e in json.loads((ASSETS / "training.json").read_text())
+                for e in json.loads((ASSETS / "training.json").read_text(encoding="utf-8"))
             ],
         )
         db.executemany(

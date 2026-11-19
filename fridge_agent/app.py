@@ -543,7 +543,7 @@ def recipes(session_id: str = "default"):
     return {
         "meals": list(meals.values()),
         "ingredients": list(refs.values()),
-        "exercises": json.loads((HERE / "assets" / "training.json").read_text()),
+        "exercises": json.loads((HERE / "assets" / "training.json").read_text(encoding="utf-8")),
     }
 
 
@@ -698,12 +698,12 @@ def erase(confirm: str = ""):
 
 @app.get("/", response_class=HTMLResponse)
 def home():
-    return (HERE / "index.html").read_text()
+    return (HERE / "index.html").read_text(encoding="utf-8")
 
 
 @app.get("/privacy", response_class=HTMLResponse)
 def privacy():
-    return (HERE / "privacy.html").read_text()
+    return (HERE / "privacy.html").read_text(encoding="utf-8")
 
 
 if __name__ == "__main__":

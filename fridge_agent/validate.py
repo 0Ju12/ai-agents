@@ -21,7 +21,7 @@ BASE = "01d54bc46a9465d5213739886e2a0c8dfee85316"
 
 
 def save(name, obj):
-    (OUT / name).write_text(json.dumps(obj, ensure_ascii=False, indent=2) + "\n")
+    (OUT / name).write_text(json.dumps(obj, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def use(fn):

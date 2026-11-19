@@ -21,7 +21,7 @@ def google_call(path, args=None, body=None, method=None):
     file = token_file()
     if not file.is_file():
         return {"ok": False, "error": "CALENDAR_NOT_CONNECTED"}
-    cred = json.loads(file.read_text())
+    cred = json.loads(file.read_text(encoding="utf-8"))
     auth = urlencode(
         {
             "client_id": cred["client_id"],
