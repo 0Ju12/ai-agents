@@ -171,6 +171,7 @@ function groupsList(m) {
     ["바로 가능", "지금 재료로 바로 만들 수 있어요"],
     ["분량 확인", "있는 재료의 양만 확인하면 돼요"],
     ["조금만 사면", "부족한 재료가 1~2가지예요"],
+    ["추가 재료 필요", "필요한 재료를 확인하세요"],
     ["국내 레시피", "식품안전나라 레시피에서 찾았어요"],
   ].filter(([k]) => g[k]?.length);
   if (!sections.length) return "";
@@ -207,7 +208,7 @@ function mediaBlock(m) {
 function agentCard(m) {
   let body = m.answer ? `<p class="answer">${esc(m.answer)}</p>` : "";
   if (m.kind === "auto") {
-    body += m.done.length ? `<p class="sec">제가 진행한 일</p>${doneList(m)}` : m.more ? `<p>이미 보여 드린 메뉴를 빼고 다른 후보를 골랐어요.</p>` : `<p>${esc(m.note || "조건에 맞는 메뉴가 없어요. 시간이나 조건을 바꿔 말해 주세요.")}</p>`;
+    body += m.done.length ? `<p class="sec">제가 진행한 일</p>${doneList(m)}` : m.note ? `<p>${esc(m.note)}</p>` : m.more ? `<p>이미 보여 드린 메뉴를 빼고 다른 후보를 골랐어요.</p>` : `<p>${esc("조건에 맞는 메뉴가 없어요. 시간이나 조건을 바꿔 말해 주세요.")}</p>`;
     body += m.groups || m.picks.length ? `${m.groups ? "" : '<p class="sec">추천 후보</p>'}${picksList(m)}` : "";
     body += m.menu && !m.more
       ? `<div class="cta">${btn(`${m.servings}인분 조리 시작`, "agentCook", "btn", "timer", JSON.stringify([m.menu, m.servings]))}${m.cart ? btn("장바구니 보기", "pantry", "btn alt", "shopping-bag") : ""}</div><p class="sec">${esc(m.menu)} 영상</p><div class="media">${mediaBlock(m)}</div>`
@@ -216,7 +217,7 @@ function agentCard(m) {
   } else if (m.kind === "workout") {
     const r = m.routine;
     const ex = r.exercises || [];
-    body += `<div class="workout-card"><div class="wk-head"><div class="wk-mini">${ex[0] && typeof figureSVG === "function" ? figureSVG(motionOf(ex[0].name), null, { label: ex[0].name }) : disk("dumbbell", "peach")}</div><div><strong>${esc(r.move || r.summary)}</strong><small>${esc(r.level || "")} · ${esc(r.body)} · 휴식 포함 ${r.minutes}분</small></div></div>${r.steps.length ? `<ol class="step-list">${r.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>` : `<p>${esc(r.summary)}</p>`}</div>
+    body += `<div class="workout-card"><div class="wk-head"><div class="wk-mini">${ex[0]?.motion ? figureSVG(ex[0].motion, ex[0].prop, { label: ex[0].name }) : disk("dumbbell", "peach")}</div><div><strong>${esc(r.move || r.summary)}</strong><small>${esc(r.level || "")} · ${esc(r.body)} · 휴식 포함 ${r.minutes}분</small></div></div>${r.steps.length ? `<ol class="step-list">${r.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>` : `<p>${esc(r.summary)}</p>`}</div>
       <div class="cta">${r.steps.length ? btn("운동 모드 시작", "wkStart", "btn", "timer") : ""}${btn("운동 탭에서 보기", "workout", "btn alt", "dumbbell")}</div>
       ${(m.options || []).length ? `<p class="sec">다른 선택지</p><div class="picks">${m.options.map((o) => `<article class="pick"><div><strong>${esc(o.title)}</strong><small>${esc(o.why)} · ${esc(o.summary || "")}</small></div>${btn("이걸로", "wkApply", "chip", "", JSON.stringify(o.apply))}</article>`).join("")}</div>` : ""}`;
   } else if (m.kind === "search" || m.kind === "shopping") {
@@ -334,10 +335,6 @@ async function loadMedia(menu) {
   if (route() === "agent") render();
 }
 
-const MOTION_HINT = { 걷기: "walk", 스텝: "walk", 스쿼트: "squat", 의자: "squat", 런지: "lunge", "벽 밀기": "wallpush", "벽 푸시업": "wallpush", 인클라인: "incline", 푸시업: "pushup", 플랭크: "plank", 숄더: "shouldertap", 버드독: "birddog", 데드버그: "deadbug", "엎드린": "prone", 스노우엔젤: "prone", 프론: "prone", "벽 슬라이드": "wallslide", 버티기: "raise", 레이즈: "raise", 컬: "curl", 로우: "row" };
-function motionOf(name) {
-  return Object.entries(MOTION_HINT).find(([k]) => name.includes(k))?.[1] || "walk";
-}
 function findMsg(id) {
   return thread.find((m) => m.id === id);
 }

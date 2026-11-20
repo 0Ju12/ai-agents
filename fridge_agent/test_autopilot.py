@@ -197,3 +197,29 @@ def test_general_recommendations_offer_different_ingredients():
     assert not set(picks) & {row["메뉴"] for row in more["추천 후보"]}
     targeted = api.run("두부로 저녁 추천해줘")["계획"]
     assert all("두부" in row["메뉴"] for row in targeted["추천 후보"])
+
+
+def test_requested_pork_belly_never_falls_back_to_unrelated_meals(monkeypatch):
+    api.run("데모")
+    missing = api.run("삼겹살 요리 추천해줘")["계획"]
+    assert not missing["추천 후보"] and not missing["자동 진행"]
+    assert "삼겹살" in missing["안내"]
+
+    monkeypatch.setenv("FOODSAFETY_API_KEY", "fixture")
+    monkeypatch.setattr(api.food_tools, "call", lambda *_: {"ok": True, "data": [
+        {"id": "pork", "메뉴": "삼겹살꼬치구이", "재료·분량": "삼겹살 100g", "조리 순서": ["삼겹살을 팬에 굽는다."]},
+        {"id": "tofu", "메뉴": "두부 샐러드", "재료·분량": "두부 100g", "조리 순서": ["두부를 썬다."]},
+    ]})
+    plan = api.run("삼겹살 요리 추천해줘")["계획"]
+    assert [row["메뉴"] for row in plan["선택지"]["국내 레시피"]] == ["삼겹살꼬치구이"]
+    assert not plan["확정 메뉴"] and not plan["자동 진행"]
+    assert "식품안전나라" in plan["안내"]
+    more = api.run("다른 후보 알려줘")["계획"]
+    assert not more["추천 후보"] and not more["선택지"]["국내 레시피"]
+
+
+def test_excluded_ingredients_stay_excluded_in_followup():
+    api.run("데모")
+    for request in ("두부 빼고 저녁 추천해줘", "다른 후보 알려줘"):
+        picks = api.run(request)["계획"]["추천 후보"]
+        assert picks and all("두부" not in pick["메뉴"] for pick in picks)

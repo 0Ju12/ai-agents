@@ -19,14 +19,14 @@ from domain.catalog import canonical
 
 # 동작 → (화면 애니메이션 이름, 문장에서 찾는 단어). 앞에 있을수록 우선한다.
 ACTIONS = {
-    "썰기": ("chop", ("썰", "써세요", "써요", "다지", "채 ", "채를", "깍둑", "자르", "손질", "찢으")),
+    "썰기": ("chop", ("썰", "써세요", "써요", "썬", "다지", "채 ", "채를", "깍둑", "자르", "손질", "찢으")),
     "데치기": ("blanch", ("데치", "데쳐")),
     "볶기": ("stir", ("볶",)),
     "끓이기": ("boil", ("끓", "삶")),
-    "찌기": ("steam", ("찌", "찜기", "쪄")),
-    "굽기": ("grill", ("굽", "구워", "부치", "부쳐", "지지")),
+    "찌기": ("steam", ("찜기", "쪄", "찌기", "찌세요", "찌고", "찌며", "찐다", "찝니다")),
+    "굽기": ("grill", ("굽", "구워", "구운", "부치", "부쳐", "지지")),
     "섞기": ("mix", ("섞", "버무", "풀어", "젓", "저어", "개어")),
-    "넣기": ("drop", ("넣", "붓", "부어", "담", "올리", "곁들")),
+    "넣기": ("drop", ("넣", "붓", "부어", "담", "올리", "올려", "곁들")),
     "준비": ("ready", ()),
 }
 HEAT = ("센불", "강불", "중강불", "중불", "중약불", "약불")
@@ -75,10 +75,29 @@ def clean(text):
 
 
 def detect_action(text):
-    for name, (_, words) in ACTIONS.items():
-        if any(w in text for w in words):
+    # 실제 가열 지시를 먼저 읽는다. 썬 재료를 넣고 끓이는 단계는 썰기가 아니다.
+    for name in ("데치기", "볶기", "끓이기", "찌기", "굽기", "썰기", "섞기", "넣기"):
+        if any(word in text for word in ACTIONS[name][1]):
             return name
     return "준비"
+
+
+# 각 참고 이미지에서 실제로 보이는 재료와 동작만 연결한다.
+EXAMPLE_SUBJECTS = {
+    "chop": "양배추", "stir": "채소", "grill": "두부", "boil": "육수",
+    "blanch": "시금치", "steam": "채소", "mix": "간장", "drop": "채소",
+}
+
+
+def example_subject(action, text):
+    subject = EXAMPLE_SUBJECTS.get(action)
+    if not subject or subject not in text:
+        return None
+    if action in {"stir", "grill", "steam", "drop"} and re.search(r"삼겹살|고기|닭|새우|생선|연어|참치|달걀", text):
+        return None
+    if action == "drop" and not re.search(r"냄비|국물|육수", text):
+        return None
+    return subject
 
 
 def timer_seconds(text):
@@ -97,7 +116,8 @@ def build(title, steps, grams=None, raw_ingredients=None, photos=None, servings=
     emit = emit or (lambda *a, **k: None)
     if not 1 <= servings <= 20:
         raise ValueError("1~20인분으로 입력하세요.")
-    texts = [clean(t) for t in steps if clean(t)][:40]
+    indexed_texts = [(index, text) for index, step in enumerate(steps) if (text := clean(step))][:40]
+    texts = [text for _, text in indexed_texts]
     if not texts:
         raise ValueError("조리 단계가 있는 레시피를 선택하세요.")
     grams = {canonical(k): float(v) for k, v in (grams or {}).items()}
@@ -105,7 +125,7 @@ def build(title, steps, grams=None, raw_ingredients=None, photos=None, servings=
     have = {canonical(x) for x in stock}
     photos = list(photos or [])
     cards = []
-    for i, text in enumerate(texts):
+    for i, (source_index, text) in enumerate(indexed_texts):
         action = detect_action(text)
         cards.append(
             {
@@ -116,7 +136,7 @@ def build(title, steps, grams=None, raw_ingredients=None, photos=None, servings=
                 "재료": mentioned(text, names),
                 "타이머(초)": timer_seconds(text),
                 "불 세기": next((h for h in HEAT if h in text), None),
-                "사진": photos[i] if i < len(photos) else None,
+                "사진": photos[source_index] if source_index < len(photos) else None,
                 "팁": "",
             }
         )
@@ -157,6 +177,7 @@ def build(title, steps, grams=None, raw_ingredients=None, photos=None, servings=
             }
             for n in card["재료"]
         ]
+        card["기법 예시 재료"] = example_subject(card["애니메이션"], card["설명"])
         rd.enrich(card, names)
     # 앞에 재료 준비(계량·손질), 뒤에 완성·보관 단계를 붙여 처음 하는 사람도 따라 할 수 있게 한다
     cards = [rd.prep_card(names, grams, servings, icon)] + cards + [rd.finish_card(len(cards) + 1, title)]

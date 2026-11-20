@@ -7,10 +7,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app as api
-import gateway
 import media
 import video_guide
-from fake_llm import FakeChat
 
 PHOTO = "https://www.foodsafetykorea.go.kr/uploadimg/cook/77_1.png"
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 200
@@ -40,15 +38,12 @@ def test_chapters_follow_youtube_rules():
     assert video_guide.match_rule(STEPS, chapters) == [40, 130, 330]
 
 
-def test_model_matching_must_keep_time_order(monkeypatch):
-    chapters = [{"start": 0, "title": "인트로"}, {"start": 50, "title": "A"}, {"start": 90, "title": "B"}]
-    monkeypatch.setenv("GMS_KEY", "unit-test-value")
-    monkeypatch.setattr(gateway, "ChatOpenAI", FakeChat.factory(plan={"pairs": [{"step": 0, "chapter": 2}, {"step": 1, "chapter": 1}]}))
-    starts, how = video_guide.match(["가", "나", "다"], chapters, lambda *a, **k: None)
-    assert starts == [90, None, None]  # 앞 단계보다 이른 챕터(거꾸로 가는 짝)는 버린다
-    monkeypatch.setattr(gateway, "ChatOpenAI", FakeChat.factory(plan={"pairs": [{"step": 0, "chapter": 1}, {"step": 2, "chapter": 2}]}))
-    starts, how = video_guide.match(["가", "나", "다"], chapters, lambda *a, **k: None)
-    assert starts == [50, None, 90] and how.startswith("규칙 + 모델")
+def test_unrelated_chapters_are_not_used():
+    chapters = [
+        {"start": 20, "title": "삼겹살 썰기"},
+        {"start": 50, "title": "두부 굽기"},
+    ]
+    assert video_guide.match_rule(["삼겹살을 팬에 굽는다.", "물을 부어 끓인다."], chapters) == [None, None]
 
 
 def test_youtube_videos_are_cached_and_embeddable(monkeypatch):
@@ -70,7 +65,7 @@ def test_youtube_videos_are_cached_and_embeddable(monkeypatch):
     first = out["youtube"]["data"][0]
     assert first["id"] == "abcdefghijk" and first["title"] == "김치찌개 & 레시피"  # 챕터 있는 영상 우선
     assert first["step_starts"] == [40, 130, 330]
-    assert out["youtube"]["data"][1]["matching"] == "챕터 없음"
+    assert len(out["youtube"]["data"]) == 1  # 제목이 메뉴와 무관한 영상은 숨긴다
     video_guide.youtube_videos("김치찌개")
     assert len(calls) == 2  # 두 번째는 24시간 캐시
 

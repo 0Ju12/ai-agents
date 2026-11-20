@@ -17,9 +17,8 @@ from html import unescape
 from pathlib import Path
 from urllib.parse import urlencode
 
-from pydantic import BaseModel, Field
-
-import gateway
+from cook_guide import detect_action
+from menu_match import ingredient_names
 from connections import fail, instagram, need
 from gateway import request_json
 
@@ -56,52 +55,25 @@ def words(text):
 def match_rule(steps, chapters):
     """단계마다 단어가 가장 많이 겹치는 챕터. 앞 단계보다 이른 챕터는 고르지 않는다."""
     starts, floor = [], 0
+    subjects = (*ingredient_names(), "삼겹살", "닭고기")
     for text in steps:
+        action = detect_action(text)
+        ingredients = {name for name in subjects if name in text}
         best, score = None, 0
         for i in range(floor, len(chapters)):
-            s = len(words(text) & words(chapters[i]["title"]))
+            title = chapters[i]["title"]
+            if action == "준비" or action != detect_action(title):
+                continue
+            chapter_ingredients = {name for name in subjects if name in title}
+            if ingredients and chapter_ingredients and not ingredients.intersection(chapter_ingredients):
+                continue
+            s = len(words(text) & words(title))
             if s > score:
                 best, score = i, s
         if best is not None:
             floor = best
         starts.append(chapters[best]["start"] if best is not None else None)
     return starts
-
-
-class StepChapter(BaseModel):
-    step: int = Field(ge=0, le=40)
-    chapter: int = Field(ge=0, le=100)
-
-
-class ChapterMap(BaseModel):
-    pairs: list[StepChapter] = Field(default_factory=list, max_length=40)
-
-
-def match(steps, chapters, emit):
-    starts = match_rule(steps, chapters)
-    if not chapters or os.getenv("VIDEO_LLM", "1") != "1" or not gateway.configured():
-        return starts, "규칙"
-    try:
-        result = gateway.structured(
-            "영상 매칭",
-            "조리 단계마다 같은 장면의 챕터 번호를 고른다. 해당 챕터가 없으면 그 단계는 빼고, 단계 순서대로 챕터 번호가 줄어들지 않게 한다.",
-            {"steps": steps, "chapters": [c["title"] for c in chapters]},
-            ChapterMap,
-        )
-    except (ValueError, OSError):
-        emit("error", "영상 매칭", reason="규칙 매칭 사용")
-        return starts, "규칙"
-    merged, last = list(starts), -1
-    for p in sorted(result.pairs, key=lambda x: x.step):
-        if p.step < len(steps) and p.chapter < len(chapters) and p.chapter >= last and merged[p.step] is None:
-            merged[p.step] = chapters[p.chapter]["start"]
-        if p.chapter < len(chapters):
-            last = max(last, p.chapter)
-    ordered = [s for s in merged if s is not None]
-    if ordered != sorted(ordered):  # 시간이 거꾸로 가면 모델 보충을 버린다
-        return starts, "규칙"
-    emit("llm_decision", "영상 매칭", method="model", decision=sum(s is not None for s in merged), reason="챕터-단계 짝")
-    return merged, "규칙 + 모델 보충(코드 검증)"
 
 
 def cache(name, build):
@@ -163,8 +135,18 @@ def media_for(menu, steps, emit, kind="recipe"):
     except (HTTPError, OSError, ValueError, KeyError):
         yt = fail("SOURCE_UNAVAILABLE")
     if yt.get("ok"):
-        for v in yt["data"]:
-            v["step_starts"], v["matching"] = match(steps, v["chapters"], emit) if v["chapters"] else ([None] * len(steps), "챕터 없음")
+        key = re.sub(r"[^\w]", "", menu).casefold()
+        videos = []
+        for row in yt["data"]:
+            if not key or key not in re.sub(r"[^\w]", "", row["title"]).casefold():
+                continue
+            chapters = row["chapters"]
+            videos.append({
+                **row,
+                "step_starts": match_rule(steps, chapters),
+                "matching": "규칙" if chapters else "챕터 없음",
+            })
+        yt = {**yt, "data": videos} if videos else fail("NO_RESULT")
     emit("tool_result", "youtube", ok=yt.get("ok", False), error=yt.get("error"))
     emit("tool_call", "instagram", argument=menu)
     try:

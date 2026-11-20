@@ -178,7 +178,7 @@ def varied(picks, meals, available, limit):
     return ordered[:limit]
 
 
-def options(pool, shown=(), kr=(), pick=None):
+def options(pool, shown=(), kr=(), pick=None, targeted=False):
     """선택지 묶음: 바로 가능 · 1~2개만 사면 가능 · 국내 레시피. 이미 보여 준 메뉴는 뺀다."""
     fresh = [x for x in pool if x["메뉴"] not in shown]
     take = pick or (lambda rows, limit: rows[:limit])
@@ -186,6 +186,7 @@ def options(pool, shown=(), kr=(), pick=None):
         "바로 가능": take([x for x in fresh if not x["부족분"] and not x.get("수량 확인")], 4),
         "분량 확인": take([x for x in fresh if not x["부족분"] and x.get("수량 확인")], 4),
         "조금만 사면": take([x for x in fresh if 1 <= len(x["부족분"]) <= 2], 3),
+        **({"추가 재료 필요": take([x for x in fresh if len(x["부족분"]) > 2], 3)} if targeted else {}),
         "국내 레시피": [x for x in kr if x["메뉴"] not in shown][:4],
     }
 
@@ -198,16 +199,18 @@ def run(state, message, meals, refs, day, emit, limit=None, media=None, named=No
     only_stock = any(word in message for word in ("있는 걸로만", "있는 재료로만", "있는 것만", "있는 재료만"))
     if more:
         only_stock = state.get("recommend_stock_only", False)
-    missed = said_menu if said_menu and not hits and not named else ""
+    targeted = bool(named or hits or said_menu)
+    allowed = {named} if named else set(hits)
 
     def candidates(servings):
-        pool = ranked(state, meals, refs, day, limit, top=len(meals), light=light, servings=servings)
+        catalog = {title: meal for title, meal in meals.items() if title in allowed} if targeted else meals
+        pool = ranked(state, catalog, refs, day, limit, top=len(catalog), light=light, servings=servings)
         if hits:  # 말한 메뉴·종류에 맞는 레시피를 앞으로 (그 안에서는 원래 순서 유지)
             inside = {x["메뉴"] for x in pool}
             if limit is not None or state.get("minutes"):
                 # 콕 집어 말한 메뉴는 가용 시간을 넘어도 후보로 보여 주고, 넘는 시간을 근거에 적는다
                 wide = {**state, "minutes": 240}
-                for x in ranked(wide, {t: meals[t] for t in hits if t not in inside}, refs, day, None, top=len(hits), light=light, servings=servings):
+                for x in ranked(wide, {t: catalog[t] for t in allowed if t in catalog and t not in inside}, refs, day, None, top=len(hits), light=light, servings=servings):
                     over = x["조리시간(분)"] - min(state["minutes"], limit or state["minutes"])
                     x["근거"].insert(0, f"가용 시간보다 {over}분 더 걸려요")
                     x["시간 초과"] = over
@@ -231,17 +234,19 @@ def run(state, message, meals, refs, day, emit, limit=None, media=None, named=No
     servings = explicit_servings or (state.get("recommend_servings", 1) if more else 1)
     pool = candidates(servings)
     kr_rows = kr() if kr and not only_stock else []
-    choice = options(pool, shown, kr_rows, pick)
+    choice = options(pool, shown, kr_rows, pick, targeted)
     top3 = pick(pool, 3)
     top = top3[0] if top3 else None
-    if more:  # "다른 후보" 요청: 후보만 새로 보여 주고 다른 작업은 하지 않는다 (모델 호출 없음)
+    if not top:
+        actions, inferred, how, reason, said = [], servings, "규칙", "", ""
+    elif more:  # "다른 후보" 요청: 후보만 새로 보여 주고 다른 작업은 하지 않는다 (모델 호출 없음)
         actions, how, reason, said = [], "규칙", "이미 보여 드린 후보를 빼고 다음 후보를 골랐어요", ""
     else:
         actions, inferred, how, reason, said = decide(message, top, emit)
         if inferred != servings and explicit_servings is None:
             servings = inferred
             pool = candidates(servings)
-            choice = options(pool, shown, kr_rows, pick)
+            choice = options(pool, shown, kr_rows, pick, targeted)
             top3 = pick(pool, 3)
             top = top3[0] if top3 else None
             said = ""
@@ -249,6 +254,8 @@ def run(state, message, meals, refs, day, emit, limit=None, media=None, named=No
                 actions = []
     if explicit_servings and not more and inferred != servings:
         said = ""
+    if only_stock and "장바구니" in actions:
+        actions.remove("장바구니")
     state["recommend_servings"] = servings
     state["recommend_stock_only"] = only_stock
     listed = [x["메뉴"] for group in choice.values() for x in group] + [x["메뉴"] for x in top3]
@@ -284,17 +291,26 @@ def run(state, message, meals, refs, day, emit, limit=None, media=None, named=No
         done.append({"작업": "영상·게시물 찾기", "결과": f"{n}건" if n else "키가 없어 직접 링크를 붙이면 화면에서 재생돼요", "되돌리기": None})
     if "조리모드" in actions and top:
         done.append({"작업": "조리 모드 준비", "결과": f"{top['메뉴']} {servings}인분 단계 안내", "되돌리기": None})
+    note = ""
+    if not top and choice["국내 레시피"]:
+        note = "요청하신 요리를 식품안전나라에서 찾았어요. 아래 레시피에서 재료를 확인하고 조리 모드를 여세요."
+    elif not top and more:
+        note = "이 조건에서 아직 보여 드리지 않은 후보를 찾지 못했어요."
+    elif not top and targeted:
+        note = f"‘{named or cue or said_menu}’ 조건에 맞는 레시피를 찾지 못했어요. 재료나 조리 조건을 바꿔 보세요."
+    elif not top and only_stock:
+        note = "지금 재고로 이 인분을 만들 수 있는 메뉴가 없어요. 인분을 줄이거나 재료를 추가해 주세요."
     emit("node_end", "자동 진행")
     return {
         "자동 진행": done,
         "추천 후보": top3,
         "선택지": choice,
-        **({"안내": "지금 재고로 이 인분을 만들 수 있는 메뉴가 없어요. 인분을 줄이거나 재료를 추가해 주세요."} if only_stock and not top else {}),
+        **({"안내": note} if note else {}),
         "더보기": more,
         "확정 메뉴": top["메뉴"] if top and "메뉴확정" in actions else None,
         "인분": servings,
         "판단 방법": how,
-        "판단 이유": (f"‘{cue}’에 맞는 레시피에서 골랐어요. " if hits else "") + (f"‘{missed}’ 레시피는 아직 없어 지금 재료로 가능한 메뉴를 골랐어요. " if missed else "") + ("열량이 낮은 순으로 골랐어요. " if light else "") + reason,
+        "판단 이유": (f"‘{cue}’에 맞는 레시피에서 골랐어요. " if hits else "") + ("열량이 낮은 순으로 골랐어요. " if light else "") + reason,
         "메시지": said,
         "영상": found,
         "조리 모드": {"title": top["메뉴"], "servings": servings} if top and "조리모드" in actions else None,

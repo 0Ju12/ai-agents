@@ -38,8 +38,22 @@ def phrase(text):
     m = re.search(r"([가-힣A-Za-z ]{2,24}?)\s*(?:이|가|을|를|은|는)?\s*(?:먹고\s*싶|해\s*먹|만들어|만들|먹을|요리|해\s*줘|해줘|어때)", text)
     if not m:
         return ""
-    words = [w for w in m[1].split() if w not in STOP]
+    tail = re.sub(r"(?:\s+추천)+$", "", m[1].strip())
+    if "추천" in tail or re.search(r"냉장고|있는 걸로|있는 재료|위주|빼고|제외", tail):
+        return ""
+    words = [w for w in tail.split() if w not in STOP]
     return " ".join(words).strip()
+
+
+def excluded_ingredients(text):
+    from domain.catalog import ALIASES
+
+    names = set(ingredient_names()) | ALIASES.keys() | {"삼겹살"}
+    return {
+        ALIASES.get(name, name)
+        for name in names
+        if re.search(r"(?<![가-힣])" + re.escape(name) + r"(?:을|를|은|는)?\s*(?:빼고|제외|없이|말고)", text)
+    }
 
 
 def matches(text, meals):

@@ -49,15 +49,16 @@ function prepBoard() {
 }
 function stage(card) {
   if (card["종류"] === "prep") return prepBoard();
-  const action = card["애니메이션"];
-  const technique = ["chop", "stir", "grill", "boil", "blanch", "steam", "mix", "drop"].includes(action) ? action : "ready";
-  const example = "/static/techniques/" + technique + ".webp";
+  const subject = card["기법 예시 재료"];
+  const example = subject ? "/static/techniques/" + card["애니메이션"] + ".webp" : "";
+  const original = card["사진"] || (card["종류"] === "finish" ? guide["대표 사진"] : "");
   if (card["클립"]) {
     const autoplay = matchMedia("(prefers-reduced-motion: reduce)").matches ? "" : "autoplay";
-    return `<figure class="cook-photo"><video controls ${autoplay} muted playsinline poster="${example}" src="${esc(card["클립"])}"></video><figcaption>검수된 AI 조리 영상</figcaption></figure>`;
+    return `<figure class="cook-photo"><video controls ${autoplay} muted playsinline ${original || example ? `poster="${esc(original || example)}"` : ""} src="${esc(card["클립"])}"></video><figcaption>검수된 AI 조리 영상</figcaption></figure>`;
   }
-  const caption = card["사진"] ? "식품안전나라 · 단계 사진" : "조리 기법 예시 · AI 이미지";
-  return `<figure class="technique-photo"><img src="${esc(card["사진"] || example)}" alt="${esc(card["동작"] || "조리")} 기법 예시" data-fallback="${example}"><figcaption>${caption}</figcaption></figure>`;
+  if (!original && !example) return "";
+  const caption = original ? "식품안전나라 · " + (card["종류"] === "finish" ? "완성 사진" : "단계 사진") : subject + " · " + card["동작"] + " AI 예시";
+  return `<figure class="technique-photo"><img src="${esc(original || example)}" alt="${esc(caption)}" data-fallback="${esc(original ? example : "")}" data-example-label="${esc(subject + " · " + card["동작"] + " AI 예시")}"><figcaption>${esc(caption)}</figcaption></figure>`;
 }
 function tabs() {
   return `<div class="cook-tabs" role="tablist">${[
@@ -139,8 +140,13 @@ function paint() {
   const photo = document.querySelector("#sheet-body .technique-photo img");
   if (photo) photo.onerror = () => {
     photo.onerror = null;
+    if (!photo.dataset.fallback) {
+      photo.closest("figure").remove();
+      return;
+    }
     photo.src = photo.dataset.fallback;
-    photo.nextElementSibling.textContent = "조리 기법 예시 · AI 이미지";
+    photo.alt = photo.nextElementSibling.textContent = photo.dataset.exampleLabel;
+    photo.onerror = () => photo.closest("figure").remove();
   };
   if (tab === "social" && mediaInfo?.instagram?.ok) loadInstagram();
 }

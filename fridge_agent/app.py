@@ -221,8 +221,9 @@ def korean_options(state, day, emit, term=None):
         emit("tool_result", "kr_recipe", ok=res.get("ok", False), error=res.get("error"))
         for row in res.get("data", []) if res.get("ok") else []:
             names = [canonical(n) for n in recipe_ingredients(row.get("재료·분량"))]
-            used = [n for n in names if n in have]
-            if not row.get("조리 순서") or (not used and not term):
+            query = re.sub(r"\s+", "", term)
+            searchable = [row["메뉴"], *names]
+            if not row.get("조리 순서") or not any(query in re.sub(r"\s+", "", value) for value in searchable):
                 continue
             missing = [n for n in names if n not in have and n not in ("물", "소금", "후추", "설탕")]
             state.setdefault("external_recipes", {})[str(row["id"])] = row
@@ -606,7 +607,10 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
     day = today().isoformat()
     add_text(state, intent.add)
     if intent.remove:
-        state["lots"] = [l for l in state["lots"] if l["item"] not in {canonical(x) for x in intent.remove}]
+        remove = {canonical(x) for x in intent.remove}
+        if command in {"추천", "집밥", "메뉴"}:
+            remove.difference_update(menu_match.excluded_ingredients(message))
+        state["lots"] = [l for l in state["lots"] if l["item"] not in remove]
     if command == "운동":  # 운동 요청의 분은 식사 가용 시간이 아니라 운동 시간이다
         update_settings(state, {k: v for k, v in {"body": intent.body, "level": intent.level, "exercise_minutes": intent.minutes}.items() if v})
     else:
@@ -684,10 +688,20 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
 
         named = next((t for t in sorted(meals, key=len, reverse=True) if t in message), None)
         more = arg == "더보기"
-        wanted = menu_match.matches(message, meals)
+        request = state.get("recommend_query", message) if more else message
+        if not more:
+            state["recommend_query"] = message
+        excluded = menu_match.excluded_ingredients(request)
+        match_query = re.sub(r"[가-힣]+(?:을|를|은|는)?\s*(?:빼고|제외하고|제외|없이|말고)", " ", request) if excluded else request
+        wanted = menu_match.matches(match_query, meals)
+        meals = {title: meal for title, meal in meals.items() if not excluded.intersection(meal["grams"])}
+        if named not in meals:
+            named = None
 
         def find_korean():  # 말한 메뉴가 내 레시피에 없으면 그 이름으로 국내 레시피를 찾는다
-            return korean_options(state, day, emit, None if wanted[0] or named else wanted[3] or None)
+            if excluded or any(meals.get(title) for title in wanted[0]) or named:
+                return []
+            return korean_options(state, day, emit, wanted[3] or None)
 
         extra = autopilot.run(state, message, meals, refs, day, emit, limit, find_media, named, more, find_korean, wanted)
         offered = {x["메뉴"] for x in extra["추천 후보"]}
@@ -708,7 +722,10 @@ def run(message, db_path=None, session_id="default", params=None, request_id=Non
         snap = snapshot(state)
         merged = {**snap["계획"], **extra} if extra["추천 후보"] else extra
         # 자동 진행 판단에서 모델이 문장까지 썼으면 답변 호출을 생략한다 (모델 호출 3회 → 2회)
-        result = {"답변": extra["메시지"], **merged} if extra.get("메시지") else workflow.answer(message, merged, emit)
+        if extra.get("메시지"):
+            result = {"답변": extra["메시지"], **merged}
+        else:
+            result = workflow.answer(message, merged, emit) if extra["추천 후보"] else merged
     if command == "레시피" and result.get("조회", {}).get("ok"):
         state["external_recipes"] = {str(x["id"]): x for x in result["조회"]["data"] if x.get("id")}
     if command == "쇼핑":

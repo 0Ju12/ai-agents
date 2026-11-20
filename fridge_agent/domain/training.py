@@ -67,7 +67,7 @@ def set_seconds(name, item):
 def routine(state, available):
     """트레이너처럼 짠 오늘 루틴: 준비 운동 → 본운동(횟수·세트·휴식·템포) → 마무리 스트레칭.
     가용 시간에 맞춰 동작 수와 세트 수를 조절하고, 최근 '어려움' 피드백이면 한 단계 쉽게 한다."""
-    from domain.exercise_library import LEVEL_PLAN, trainer
+    from domain.exercise_library import LEVEL_PLAN, describe, trainer
 
     body = state.get("body") or GOALS[state.get("goal", "체력")]
     level = state.get("level", "초보")
@@ -103,7 +103,8 @@ def routine(state, available):
             mode = t.get("mode") if t.get("mode") in ("hold", "time") else "reps"  # time: 정해진 시간 동안 계속(걷기 등)
             reps = max(6, plan["reps"] - (2 if easier else 0))
             hold = max(15, plan["hold"] - (5 if easier else 0)) + (20 if mode == "time" else 0)
-            item = {"name": name, "guide": guide, "mode": mode, "reps": reps if mode == "reps" else None,
+            demo = describe(name)
+            item = {"name": name, "motion": demo["motion"], "prop": demo["prop"], "guide": guide, "mode": mode, "reps": reps if mode == "reps" else None,
                     "hold_sec": hold if mode != "reps" else None, "tempo": t.get("tempo", [2, 1, 2]),
                     "sets": sets, "rest_sec": plan["rest"] + (15 if easier else 0)}
             item["work_sec"] = set_seconds(name, item)

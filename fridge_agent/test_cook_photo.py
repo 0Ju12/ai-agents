@@ -117,3 +117,15 @@ def test_barcode_lookup(monkeypatch, client):
     assert client.get("/api/barcode/12ab").status_code == 422
     monkeypatch.setattr(food_tools, "call", lambda tool, code: {"ok": True, "data": {"product": "국산콩 두부", "kcal": 84}})
     assert client.get("/api/barcode/8801234567890").json()["data"]["product"] == "국산콩 두부"
+
+
+def test_visual_requires_a_matching_action_and_subject():
+    guide = cook_guide.build("삼겹살구이", [
+        "삼겹살을 팬에 굽는다.",
+        "양배추를 얇게 썬다.",
+        "썬 양배추를 넣고 육수를 끓인다.",
+        "김치찌개를 그릇에 담는다.",
+    ])
+    steps = guide["단계"][1:-1]
+    assert [step["동작"] for step in steps] == ["굽기", "썰기", "끓이기", "넣기"]
+    assert [step["기법 예시 재료"] for step in steps] == [None, "양배추", "육수", None]
