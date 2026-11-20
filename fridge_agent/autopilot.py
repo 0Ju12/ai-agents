@@ -148,13 +148,44 @@ def decide(message, top, emit):
     return actions, servings, how, reason, said
 
 
-def options(pool, shown=(), kr=()):
+def varied(picks, meals, available, limit):
+    """Keep the best match, then prefer distinct ingredients among equally feasible meals."""
+    if not picks:
+        return []
+    ordered = []
+    groups = {}
+    for pick in picks:
+        feasibility = (len(pick["부족분"]), len(pick["수량 확인"]))
+        groups.setdefault(feasibility, []).append(pick)
+    for group in groups.values():
+        used = set()
+        repeated = []
+        for pick in group:
+            ingredients = meals.get(pick["메뉴"], {}).get("grams", {})
+            ingredient = min(
+                ingredients,
+                key=lambda name: (available.get(name, {}).get("earliest") or "9999-12-31", -ingredients[name]),
+                default=pick["메뉴"],
+            )
+            if ingredient in used:
+                repeated.append(pick)
+            else:
+                used.add(ingredient)
+                ordered.append(pick)
+        ordered.extend(repeated)
+        if len(ordered) >= limit:
+            break
+    return ordered[:limit]
+
+
+def options(pool, shown=(), kr=(), pick=None):
     """선택지 묶음: 바로 가능 · 1~2개만 사면 가능 · 국내 레시피. 이미 보여 준 메뉴는 뺀다."""
     fresh = [x for x in pool if x["메뉴"] not in shown]
+    take = pick or (lambda rows, limit: rows[:limit])
     return {
-        "바로 가능": [x for x in fresh if not x["부족분"] and not x.get("수량 확인")][:4],
-        "분량 확인": [x for x in fresh if not x["부족분"] and x.get("수량 확인")][:4],
-        "조금만 사면": [x for x in fresh if 1 <= len(x["부족분"]) <= 2][:3],
+        "바로 가능": take([x for x in fresh if not x["부족분"] and not x.get("수량 확인")], 4),
+        "분량 확인": take([x for x in fresh if not x["부족분"] and x.get("수량 확인")], 4),
+        "조금만 사면": take([x for x in fresh if 1 <= len(x["부족분"]) <= 2], 3),
         "국내 레시피": [x for x in kr if x["메뉴"] not in shown][:4],
     }
 
@@ -189,12 +220,19 @@ def run(state, message, meals, refs, day, emit, limit=None, media=None, named=No
             pool = [x for x in pool if not x["부족분"]]
         return pool
 
+    available = inventory(state, day)
+
+    def pick(rows, count):
+        if hits or named or light or state.get("health_focus") or state.get("goal") == "체중 관리":
+            return rows[:count]
+        return varied(rows, meals, available, count)
+
     explicit_servings = servings_in(message)
     servings = explicit_servings or (state.get("recommend_servings", 1) if more else 1)
     pool = candidates(servings)
     kr_rows = kr() if kr and not only_stock else []
-    choice = options(pool, shown, kr_rows)
-    top3 = pool[:3]
+    choice = options(pool, shown, kr_rows, pick)
+    top3 = pick(pool, 3)
     top = top3[0] if top3 else None
     if more:  # "다른 후보" 요청: 후보만 새로 보여 주고 다른 작업은 하지 않는다 (모델 호출 없음)
         actions, how, reason, said = [], "규칙", "이미 보여 드린 후보를 빼고 다음 후보를 골랐어요", ""
@@ -203,8 +241,8 @@ def run(state, message, meals, refs, day, emit, limit=None, media=None, named=No
         if inferred != servings and explicit_servings is None:
             servings = inferred
             pool = candidates(servings)
-            choice = options(pool, shown, kr_rows)
-            top3 = pool[:3]
+            choice = options(pool, shown, kr_rows, pick)
+            top3 = pick(pool, 3)
             top = top3[0] if top3 else None
             said = ""
             if not top:

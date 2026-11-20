@@ -182,3 +182,18 @@ def test_recipe_shelf_and_recommendation_counts():
     api.run("메뉴 두부 달걀찜")
     assert api.run("조리 1인분 15분")["추천 조리 통계"] == {"추천": 1, "조리": 1}
     assert api.state()["재고 입력별 추천 통계"]["분량 입력 완료"] == {"추천": 1, "조리": 1}
+
+
+def test_general_recommendations_offer_different_ingredients():
+    api.run("데모")
+    plan = api.run("퇴근했는데 20분밖에 없어. 단백질 위주로")["계획"]
+    picks = [row["메뉴"] for row in plan["추천 후보"]]
+    assert "두부" in picks[0]
+    assert any("닭가슴살" in title for title in picks[1:])
+    assert any("달걀" in title for title in picks[1:])
+    assert all(not row["부족분"] for row in plan["추천 후보"])
+
+    more = api.run("다른 추천후보 알려줘")["계획"]
+    assert not set(picks) & {row["메뉴"] for row in more["추천 후보"]}
+    targeted = api.run("두부로 저녁 추천해줘")["계획"]
+    assert all("두부" in row["메뉴"] for row in targeted["추천 후보"])
