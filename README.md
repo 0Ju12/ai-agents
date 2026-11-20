@@ -8,6 +8,8 @@
 
 [모바일 화면](fridge_agent/screens/today-mobile.webp) · [실행과 키 설정](fridge_agent/README.md) · [요구사항 추적표](fridge_agent/docs/requirements.md) · [설계도](fridge_agent/docs/design.md) · [검증 결과](fridge_agent/docs/validation.md) · [Android APK](android/artifacts/hankki-debug.apk) · [발표자료](fridge_agent/docs/presentation.pptx)
 
+[3회차 제출 검증표](fridge_agent/docs/submission-check.md)
+
 ## 실행
 
 ```bash

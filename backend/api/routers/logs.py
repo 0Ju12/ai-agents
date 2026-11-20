@@ -9,18 +9,19 @@ from fastapi import APIRouter, Depends, HTTPException
 from backend.store.db import Store
 
 from ..deps import get_store
+from ..schemas import LogEvent, LogSession
 
 router = APIRouter(prefix="/api/logs", tags=["logs"])
 
 
-@router.get("")
+@router.get("", response_model=list[LogSession])
 def list_sessions(store: Store = Depends(get_store)):
     return store.list_sessions()
 
 
-@router.get("/{session_id}")
-def get_session(session_id: str, store: Store = Depends(get_store)):
-    logs = store.get_session_logs(session_id)
+@router.get("/{session_id}", response_model=list[LogEvent])
+def get_session(session_id: str, run_id: str | None = None, store: Store = Depends(get_store)):
+    logs = store.get_session_logs(session_id, run_id)
     if not logs:
         raise HTTPException(404, "그 세션의 실행 로그가 없습니다.")
     return logs

@@ -5,6 +5,8 @@
 - 사진은 저장하지 않는다. 형식·크기를 검사한 뒤 모델 호출에만 쓴다 (NF3001·NF3002).
 """
 
+from time import monotonic
+
 import base64
 import binascii
 import re
@@ -114,11 +116,13 @@ def analyze(kind, image, refs, stock=(), emit=None, meals=None):
     decode(image)
     if not gateway.configured():
         return {"ok": False, "error": "MISSING_KEY", "setting": "GMS_KEY", "안내": "모델 키가 없어 사진을 분석할 수 없어요. 직접 입력해 주세요."}
+    emit("plan", "사진 분석", tools=["vision"], reason="사용자가 올린 사진에서 음식 또는 재료 후보 확인")
     emit("tool_call", "vision", argument=kind)
+    started = monotonic()
     try:
         sight = gateway.see("사진 " + kind, PROMPTS[kind], image, Sight)
     except (ValueError, OSError):
-        emit("tool_result", "vision", ok=False, error="SOURCE_UNAVAILABLE")
+        emit("tool_result", "vision", ok=False, error="SOURCE_UNAVAILABLE", ms=round((monotonic() - started) * 1000))
         return {"ok": False, "error": "SOURCE_UNAVAILABLE", "안내": "사진 분석에 실패했어요. 직접 입력해 주세요."}
     have = {canonical(x) for x in stock}
     items, seen = [], set()
@@ -138,7 +142,7 @@ def analyze(kind, image, refs, stock=(), emit=None, meals=None):
                 "parts": [p.model_dump() for p in s.parts],
             }
         )
-    emit("tool_result", "vision", ok=True, count=len(items))
+    emit("tool_result", "vision", ok=True, count=len(items), ms=round((monotonic() - started) * 1000))
     out = {"ok": True, "kind": kind, "후보": items, "메모": sight.note, "안내": "후보입니다. 이름과 양을 확인한 뒤 저장하세요."}
     if kind == "meal":
         out["예상 영양"] = nutrition([x for x in items if x["grams"]], refs, meals)

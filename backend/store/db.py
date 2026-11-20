@@ -124,8 +124,13 @@ class Store:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def get_session_logs(self, session_id: str) -> list[dict]:
-        rows = self._conn.execute("SELECT * FROM run_logs WHERE session_id=? ORDER BY id", (session_id,)).fetchall()
+    def get_session_logs(self, session_id: str, run_id: str | None = None) -> list[dict]:
+        where = "WHERE session_id=?"
+        args = (session_id,)
+        if run_id:
+            where += " AND json_extract(payload, '$.run_id')=?"
+            args += (run_id,)
+        rows = self._conn.execute(f"SELECT * FROM run_logs {where} ORDER BY id", args).fetchall()
         return [{**dict(r), "payload": json.loads(r["payload"])} for r in rows]
 
     def delete_session_logs(self, session_id: str) -> int:

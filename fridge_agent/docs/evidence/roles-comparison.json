@@ -7,7 +7,7 @@
       "model_calls": 0,
       "tool_calls": 3,
       "found_detail": false,
-      "median_ms": 2.8,
+      "median_ms": 3.6,
       "repetitions": 5
     },
     {
@@ -16,7 +16,7 @@
       "model_calls": 0,
       "tool_calls": 3,
       "found_detail": false,
-      "median_ms": 3.8,
+      "median_ms": 5.2,
       "repetitions": 5
     },
     {

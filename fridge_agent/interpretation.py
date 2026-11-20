@@ -7,7 +7,7 @@ from domain.training import GOALS, LEVELS, MOVES
 from storage import today
 
 COMMANDS = set(
-    "추가 삭제 시간 부위 목표 추천 물 수면 외식 집밥 메뉴 대체 조리 섭취 요리코치 레시피 식품영양 검색 영양 도움말 입고 포장삭제 분량확인 레시피찜 찜해제 설정 운동완료 쇼핑 영상 헬스장 일정조회 일정등록 미국영양 운동자료 건강연동 시간대 주간계획 레시피저장 확인 장바구니담기 구매완료 장바구니삭제 사진식사 데모 영상링크 알림추가 알림삭제 알림토글 영양제복용 건강체크 건강반영 건강반영해제 내루틴저장 내루틴삭제 질문 섭취삭제".split()
+    "추가 삭제 시간 부위 목표 추천 물 수면 외식 집밥 메뉴 대체 조리 섭취 요리코치 레시피 식품영양 검색 영양 도움말 입고 포장삭제 분량확인 레시피찜 찜해제 설정 운동완료 쇼핑 영상 헬스장 일정조회 일정등록 미국영양 운동자료 건강연동 시간대 주간계획 레시피저장 확인 장바구니담기 구매완료 장바구니삭제 사진식사 데모 영상링크 알림추가 알림삭제 알림토글 영양제복용 건강체크 건강반영 건강반영해제 내루틴저장 내루틴삭제 질문 유산근거 섭취삭제".split()
 )
 
 
@@ -72,6 +72,8 @@ def parse(text, emit, allow_command=True):
     arg = arg.strip()
     if MORE.search(text) and "운동" not in text:  # "다른 추천 후보 알려줘" → 되묻지 않고 다음 후보
         return Intent(action="추천", argument="더보기")
+    if (allow_command and command == "유산근거") or (is_question(text) and re.search(r"국가유산|국보|문화재", text)):
+        return Intent(action="유산근거", argument=(arg if command == "유산근거" else text)[:300])
     if is_question(text) and not (allow_command and command in COMMANDS and not re.search(r"[?]|얼마|몇|어떻게|왜", arg)):
         return Intent(action="질문", argument=text[:300])  # F3022: 근거 문서 검색으로
     if allow_command and command in COMMANDS:

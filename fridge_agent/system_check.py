@@ -126,6 +126,23 @@ def check(out, base, executable):
         chef = ask("두부로 저녁 추천해줘", "chef")
         chef.locator(".persona-name").evaluate("(el) => el.scrollIntoView({block: 'start'})")
         snap("chef-mobile")
+        chef.get_by_role("button", name="이번 실행 과정").click()
+        d.get_by_role("heading", name="이번 실행 과정").wait_for()
+        assert d.locator(".trace li").count() > 3
+        snap("coach-saved-trace-mobile")
+        page.keyboard.press("Escape")
+        chef.get_by_role("button", name="이 메뉴 일정 저장").click()
+        start = d.get_by_label("시작", exact=True).input_value()
+        end = d.get_by_label("종료", exact=True).input_value()
+        assert start < end
+        d.get_by_role("button", name="계획 저장").click()
+        d.get_by_text("저장됨 · 겹치는 계획", exact=False).wait_for()
+        rows = page.request.get(base + "/api/plans").json()
+        saved = next(row for row in rows if any(item.get("kind") == "meal" and item["servings"] == 1 for item in row["items"]))
+        detail = page.request.get(base + "/api/plans/" + str(saved["id"])).json()
+        assert detail == saved
+        snap("coach-plan-mobile")
+        page.keyboard.press("Escape")
         ask("레시피 두부구이", "chef").get_by_role("button", name="결과 자세히 보기").click()
         page.locator("dialog[open]").get_by_text("이번 실행 과정", exact=False).click()
         snap("trace-mobile")
@@ -240,6 +257,8 @@ def check(out, base, executable):
         days.wait_for()
         assert page.locator(".bubble.user").count() == 0
         assert water() == before + 500
+        paths = page.request.get(base + "/openapi.json").json()["paths"]
+        assert {"/api/chat", "/api/plans", "/api/logs", "/api/logs/{session_id}"} <= paths.keys()
         assert not errs, errs
         print(
             "PASS · pantry, cook, intake, exercise, water, shopping, calendar, coach portraits, search cards, execution trace, retry after reload, saved recipes, measured lots, multi-serving cart and timer restart"

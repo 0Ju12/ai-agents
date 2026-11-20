@@ -147,6 +147,11 @@ function showResult(msg, r) {
         .join("");
   else if (p["예시 1인분(g)"] || p["남은 음식 우선"]) content = mealDetail(p);
   else content = `<p>${esc(p["안내"] || "반영했어요.")}</p>`;
+  if (p["후보 조회 기준"]) {
+    const basis = p["후보 조회 기준"];
+    content += `<p class="hint">${esc(basis["요청 날짜"] || "날짜 미지정")} · ${esc(basis["안내"])}</p>`;
+  }
+  if (p["국내 대안"]) content += "<h3>국내 대안</h3>" + provider(p["국내 대안"]);
   if (p["예산 안내"]) content += "<p class=hint>" + esc(p["예산 안내"]) + "</p>";
   sheet(
     msg,
@@ -183,16 +188,25 @@ function chat() {
     ),
   );
 }
-async function planSheet(id = null) {
+function addPlanMinutes(start, minutes) {
+  const [hours, mins] = start.split(":").map(Number);
+  const end = hours * 60 + mins + minutes;
+  if (end >= 1440) return "";
+  return [Math.floor(end / 60), end % 60].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
+async function planSheet(id = null, draft = null) {
   plans = await api("/api/plans");
   const p = plans.find((x) => String(x.id) === String(id));
   const s = st["설정"].window || {};
+  const start = p?.start_time || draft?.start || "18:00";
+  const end = p?.end_time || (draft?.minutes ? addPlanMinutes(start, draft.minutes) : "18:30");
   const cal = await api("/api/calendar/status");
   const planRows = plans.length
     ? plans
         .map(
           (x) =>
-            `<div class="list-line"><div><strong>${esc(x.title)}</strong><small>${esc(x.trip_date)} · ${esc(x.start_time)}–${esc(x.end_time)}</small><div class="btnbar">${btn("변경", "planEdit", "chip", "", x.id)}${btn("캘린더 등록", "calReg", "chip", "", x.id)}${btn("삭제", "planDelete", "chip danger", "", x.id)}</div></div></div>`,
+            `<div class="list-line"><div><strong>${esc(x.title)}</strong><small>${esc(x.trip_date)} · ${esc(x.start_time)}–${esc(x.end_time)} · 저장 ${esc(x.created_at.replace("T", " "))}</small><div class="btnbar">${btn("변경", "planEdit", "chip", "", x.id)}${btn("캘린더 등록", "calReg", "chip", "", x.id)}${btn("삭제", "planDelete", "chip danger", "", x.id)}</div></div></div>`,
         )
         .join("")
     : '<p class="empty">저장한 일정이 없습니다.</p>';
@@ -205,7 +219,7 @@ async function planSheet(id = null) {
         : '<p class="hint">이 기기의 로컬 캘린더 사용 중</p>') +
       form(
         "plan",
-        `<input type="hidden" name="id" value="${esc(p?.id || "")}">${field("계획명", "title", "text", p?.title || st["계획"]["메뉴"] || "", 'required maxlength="100"')}${field("날짜", "trip_date", "date", p?.trip_date || st["날짜"], "required")}<div class="fields">${field("시작", "start_time", "time", p?.start_time || "18:00", "required")}${field("종료", "end_time", "time", p?.end_time || "18:30", "required")}</div>`,
+        `<input type="hidden" name="id" value="${esc(p?.id || "")}">${draft ? `<input type="hidden" name="draftItems" value="${esc(JSON.stringify(draft.items))}">` : ""}${field("계획명", "title", "text", p?.title || draft?.title || st["계획"]["메뉴"] || "", 'required maxlength="100"')}${field("날짜", "trip_date", "date", p?.trip_date || draft?.day || st["날짜"], "required")}<div class="fields">${field("시작", "start_time", "time", start, "required")}${field("종료", "end_time", "time", end, "required")}</div>`,
         p ? "변경 저장" : "계획 저장",
       ) +
       `<div id="overlaps" role="status"></div><h3 class="guide-head">저장된 계획</h3>${planRows}<hr class="divider"><h3>일정을 고려한 추천</h3>` +
@@ -470,6 +484,8 @@ const forms = {
   plan: async (v) => {
     const id = v.id;
     delete v.id;
+    if (v.draftItems) v.items = JSON.parse(v.draftItems);
+    delete v.draftItems;
     const r = await api("/api/plans" + (id ? "/" + id : ""), id ? "PATCH" : "POST", v);
     await planSheet();
     $("#overlaps").textContent = r.overlaps.length

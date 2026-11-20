@@ -52,3 +52,7 @@ Content-Type: application/json
 | `/` | GET |
 | `/privacy` | GET |
 | knowledge | 로컬 벡터 DB(Chroma) | 식품·영양·운동·생활 안내 문서 근거 검색 | 질문 문장 | `[{id,title,excerpt,source,url,distance}]` · 실패: NO_INDEX, NO_RESULT, RAG_DEPENDENCY_MISSING |
+
+`GET /api/logs/{session_id}?run_id={run_id}`는 그 세션의 특정 응답에 해당하는 이벤트만 반환한다. 세션 조회와 삭제의 범위는 기존과 같다.
+
+`유산근거 <질문>`은 2회차 국가유산 Chroma를 검색한다. 2회차의 Chroma 저장 폴더를 `HERITAGE_CHROMA_DIR`로 설정하고, 질의 벡터에 사용할 GMS 또는 OpenAI 임베딩 키를 등록한다. 문서 컬렉션은 `heritage_docs`이며 출처와 링크를 반환한다. 색인이 연결되지 않거나 비어 있으면 `NO_INDEX`를 반환한다.

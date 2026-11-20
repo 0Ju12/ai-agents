@@ -6,6 +6,7 @@ import re
 from pydantic import BaseModel, Field
 import gateway
 import food_tools
+from backend.logging_agent.agent import assess as assess_events
 from domain.catalog import canonical
 from registry import META, Task, WorkerResult
 
@@ -14,44 +15,7 @@ REPAIRABLE = {"NO_RESULT", "NOT_FOUND", "INVALID_INPUT"}
 
 
 def assess(events):
-    planned = set()
-    called = set()
-    warnings = []
-    previous_failed_tool = None
-    evidence = False
-    n = 0
-    for e in events:
-        kind = e["type"]
-        p = e["payload"]
-        if kind == "plan":
-            planned.update(p.get("tools", []))
-            evidence = True
-        elif kind == "tool_call":
-            key = (e["name"], p.get("argument", ""))
-            if e["name"] not in planned:
-                warnings.append("계획 밖 호출 · " + e["name"])
-            if key in called:
-                warnings.append("같은 입력 반복 · " + e["name"])
-            called.add(key)
-            evidence = True
-        elif kind == "tool_result":
-            failed_tool = e["name"] if p.get("ok") is False else None
-            if failed_tool and failed_tool == previous_failed_tool:
-                warning = "도구 연속 실패 · " + failed_tool
-                if warning not in warnings:
-                    warnings.append(warning)
-            previous_failed_tool = failed_tool
-            evidence = True
-        elif kind == "replan":
-            n += 1
-            evidence = True
-    if n >= REPLAN_LIMIT:
-        warnings.append("재계획 상한 도달")
-    return {
-        "status": "이상" if warnings else "정상" if evidence else "판정 불가",
-        "warnings": warnings,
-        "replans": n,
-    }
+    return assess_events(events, REPLAN_LIMIT)
 
 
 # 모델 계획을 받는 명령: 핵심 작업(규칙)은 그대로 두고, 요청에 필요한 보조 도구를 모델이 고른다.
@@ -173,11 +137,18 @@ class Planner:
         return tasks, plan.reason[:200] or "모델이 요청에 필요한 도구 선택"
 
     @staticmethod
+    def fallback_search(term, results):
+        if not term or not os.getenv("FOODSAFETY_API_KEY") or "kr_recipe" in results:
+            return []
+        return [Task(tool="kr_recipe", argument=term, purpose="국내 레시피에서 대안 확인")]
+
+    @staticmethod
     def tasks(command, arg):
         direct = {
             "검색": "search",
             "레시피": "kr_recipe",
             "질문": "knowledge",
+            "유산근거": "heritage_knowledge",
             "식품영양": "kr_nutrition",
             "영양": "nutrition",
             "일정조회": "calendar_list",

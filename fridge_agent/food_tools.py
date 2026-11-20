@@ -27,10 +27,10 @@ def call(tool, argument=None, **unexpected):
 
     if tool in EXTERNAL:
         return source_lookup(tool, argument)
-    if tool == "knowledge":
-        from knowledge import search
+    if tool in {"knowledge", "heritage_knowledge"}:
+        from knowledge import heritage_search, search
 
-        return search(argument)
+        return (heritage_search if tool == "heritage_knowledge" else search)(argument)
     if tool in {"calendar_list", "calendar_register"}:
         from calendar_adapter import calendar
 

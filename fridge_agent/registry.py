@@ -63,6 +63,7 @@ META = {
         "{id,title,start,end,day}",
     ),
     "local": ("로컬", "재료·식사·운동 계산", "현재 조건", "{메뉴?,안내?,근거?,루틴?}"),
+    "heritage_knowledge": ("로컬", "2회차 국가유산 색인의 근거 문서 검색", "국가유산 질문", "[{id,title,excerpt,source,url,distance}]"),
     "knowledge": ("로컬 벡터 DB(Chroma)", "식품·영양·운동·생활 안내 문서 근거 검색 (외부 API로 확인할 수 없는 상식 질문)", "질문 문장", "[{id,title,excerpt,source,url,distance}]"),
     "vision": ("외부 모델", "사진 속 음식·재료 후보 (사용자 확인 후 기록)", "meal 또는 fridge 사진", "[{name,grams?,count?,confidence}]"),
     "media_guide": ("외부", "YouTube 챕터를 조리 단계 시작 초로 매칭 · Instagram 게시물 임베드", "메뉴명 + 조리 단계", "{youtube:[{id,chapters,step_starts}],instagram:[{url}]}"),

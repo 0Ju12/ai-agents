@@ -13,6 +13,7 @@ import os
 import re
 import sqlite3
 import time
+from time import monotonic
 from html import unescape
 from pathlib import Path
 from urllib.parse import urlencode
@@ -129,7 +130,9 @@ def youtube_videos(menu, kind="recipe"):
 def media_for(menu, steps, emit, kind="recipe"):
     from urllib.error import HTTPError
 
+    emit("plan", "영상과 게시물 조회", tools=["youtube", "instagram"], reason="메뉴 또는 동작의 참고 자료 확인")
     emit("tool_call", "youtube", argument=menu)
+    started = monotonic()
     try:
         yt = youtube_videos(menu, kind)
     except (HTTPError, OSError, ValueError, KeyError):
@@ -147,13 +150,14 @@ def media_for(menu, steps, emit, kind="recipe"):
                 "matching": "규칙" if chapters else "챕터 없음",
             })
         yt = {**yt, "data": videos} if videos else fail("NO_RESULT")
-    emit("tool_result", "youtube", ok=yt.get("ok", False), error=yt.get("error"))
+    emit("tool_result", "youtube", ok=yt.get("ok", False), error=yt.get("error"), ms=round((monotonic() - started) * 1000))
     emit("tool_call", "instagram", argument=menu)
+    started = monotonic()
     try:
         ig = instagram(menu.replace(" ", ""))
     except (HTTPError, OSError, ValueError, KeyError):
         ig = fail("SOURCE_UNAVAILABLE")
-    emit("tool_result", "instagram", ok=ig.get("ok", False), error=ig.get("error"))
+    emit("tool_result", "instagram", ok=ig.get("ok", False), error=ig.get("error"), ms=round((monotonic() - started) * 1000))
     if ig.get("ok"):
         ig["data"] = [x for x in ig["data"] if re.match(r"^https://www\.instagram\.com/(p|reel)/[\w-]+/?", x.get("url", ""))]
     tag = re.sub(r"[^\w]", "", menu)

@@ -67,3 +67,23 @@ class PlanOut(BaseModel):
 class PlanSaved(BaseModel):
     plan: PlanOut
     overlaps: list[PlanOut]  # 같은 날 시간이 겹치는 기존 계획 (저장은 막지 않음, F3015)
+
+
+
+class LogSession(BaseModel):
+    session_id: str
+    events: int
+    started_at: str
+    ended_at: str
+    replans: int
+    tool_calls: int
+
+
+class LogEvent(BaseModel):
+    id: int
+    session_id: str
+    seq: int
+    type: str
+    name: str
+    payload: dict[str, Any]
+    ts: str

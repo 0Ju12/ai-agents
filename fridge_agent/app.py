@@ -9,6 +9,7 @@ import sqlite3
 import sys
 from datetime import date, datetime
 from pathlib import Path
+from time import monotonic
 from typing import Any
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -213,12 +214,14 @@ def korean_options(state, day, emit, term=None):
     have = set(available)
     found = {}
     for term in terms:
+        emit("plan", "국내 레시피 보조 조회", tools=["kr_recipe"], reason="사용자 요청과 관련 있는 국내 후보 확인")
         emit("tool_call", "kr_recipe", argument=term)
+        started = monotonic()
         try:
             res = food_tools.call("kr_recipe", term)
         except (OSError, ValueError, KeyError, TypeError):
             res = {"ok": False, "error": "SOURCE_UNAVAILABLE"}
-        emit("tool_result", "kr_recipe", ok=res.get("ok", False), error=res.get("error"))
+        emit("tool_result", "kr_recipe", ok=res.get("ok", False), error=res.get("error"), ms=round((monotonic() - started) * 1000))
         for row in res.get("data", []) if res.get("ok") else []:
             names = [canonical(n) for n in recipe_ingredients(row.get("재료·분량"))]
             query = re.sub(r"\s+", "", term)

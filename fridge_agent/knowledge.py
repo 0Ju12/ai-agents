@@ -88,11 +88,11 @@ def search(question, k=3):
         return {"ok": False, "error": "INVALID_INPUT"}
     try:
         col = collection()
+        res = col.query(query_embeddings=embed([expand(question)]), n_results=k)
     except ImportError:
         return {"ok": False, "error": "RAG_DEPENDENCY_MISSING"}
     except Exception:  # 색인 경로·형식 문제
         return {"ok": False, "error": "NO_INDEX"}
-    res = col.query(query_embeddings=embed([expand(question)]), n_results=k)
     rows = [
         {"id": i, "title": m["title"], "excerpt": d.split("\n", 1)[-1], "source": m["source"], "url": m["url"], "topic": m["topic"], "distance": round(dist, 3)}
         for i, d, m, dist in zip(res["ids"][0], res["documents"][0], res["metadatas"][0], res["distances"][0])
@@ -102,3 +102,50 @@ def search(question, k=3):
         return {"ok": False, "error": "NO_RESULT"}
     rows = [r for r in rows if r["distance"] <= rows[0]["distance"] + 0.1]  # 1위보다 많이 먼 문서는 근거에서 뺀다
     return {"ok": True, "data": rows, "source": f"한끼 안내 문서 {col.count()}편 · Chroma({COLLECTION})"}
+
+
+
+def heritage_search(question, limit=3):
+    """2회차 국가유산 Chroma의 원본 컬렉션을 읽고 출처를 같은 응답 계약으로 반환한다."""
+    path = os.getenv("HERITAGE_CHROMA_DIR")
+    if not path or not (Path(path) / "chroma.sqlite3").is_file():
+        return {"ok": False, "error": "NO_INDEX"}
+
+    import gateway
+
+    try:
+        import chromadb
+
+        client = chromadb.PersistentClient(path=path)
+        collection = client.get_collection("heritage_docs")
+        count = collection.count()
+        if not count:
+            return {"ok": False, "error": "NO_INDEX"}
+        key, url = gateway.openai_config()
+        if not key:
+            return {"ok": False, "error": "MISSING_KEY"}
+        response = gateway.request_json(
+            url + "/embeddings",
+            {"model": "text-embedding-3-small", "input": [question]},
+            {"Authorization": "Bearer " + key}, timeout=20,
+        )
+        result = collection.query(query_embeddings=[response["data"][0]["embedding"]], n_results=min(count, limit))
+        rows = []
+        for chunk_id, body, meta, distance in zip(
+            result["ids"][0], result["documents"][0], result["metadatas"][0], result["distances"][0],
+        ):
+            if meta and body and meta.get("url"):
+                rows.append({
+                    "id": chunk_id, "title": meta.get("title") or chunk_id,
+                    "excerpt": body[:1000], "source": meta.get("source_type") or "2회차 국가유산 문서",
+                    "url": meta["url"], "distance": round(distance, 3),
+                })
+        if rows:
+            return {"ok": True, "data": rows, "source": "2회차 국가유산 문서 · Chroma(heritage_docs)"}
+        return {"ok": False, "error": "NO_RESULT"}
+    except ImportError:
+        return {"ok": False, "error": "RAG_DEPENDENCY_MISSING"}
+    except chromadb.errors.NotFoundError:
+        return {"ok": False, "error": "NO_INDEX"}
+    except (ValueError, OSError, IndexError, KeyError, TypeError, RuntimeError):
+        return {"ok": False, "error": "SOURCE_UNAVAILABLE"}

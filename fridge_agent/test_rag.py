@@ -64,3 +64,25 @@ def test_model_answer_is_built_from_evidence(monkeypatch):
     monkeypatch.setattr(gateway, "ChatOpenAI", FakeChat.factory(decide={"action": "질문", "argument": "카페인 하루 얼마까지?"}, answer="식약처는 성인 카페인을 하루 400mg 이하로 안내해요."))
     p = api.run("카페인 하루에 얼마까지 괜찮아?")["계획"]
     assert p["답변"].startswith("식약처는") and p["근거 문서"][0]["title"] == "카페인 하루 최대 섭취 권고량"
+
+
+def test_round_two_index_contract(tmp_path, monkeypatch):
+    import chromadb
+    import gateway
+
+    path = tmp_path / "round-two"
+    monkeypatch.setenv("HERITAGE_CHROMA_DIR", str(path))
+    response = api.run("유산근거 숭례문")["계획"]
+    assert response["오류"] == "NO_INDEX"
+
+    collection = chromadb.PersistentClient(path=str(path)).create_collection("heritage_docs")
+    collection.add(ids=["s:1"], embeddings=[[1, 0]], documents=["숭례문 검증용 문단"], metadatas=[
+        {"title": "숭례문", "url": "https://www.heritage.go.kr/", "source_type": "국가유산청"},
+    ])
+    monkeypatch.setenv("GMS_KEY", "fixture")
+    monkeypatch.setenv("ANSWER_LLM", "0")
+    monkeypatch.setattr(gateway, "request_json", lambda *a, **k: {"data": [{"embedding": [1, 0]}]})
+    result = api.run("유산근거 숭례문")["계획"]
+    evidence, = result["근거 문서"]
+    assert evidence["id"] == "s:1" and evidence["source"] == "국가유산청"
+    assert evidence["url"] == "https://www.heritage.go.kr/"

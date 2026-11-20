@@ -137,3 +137,30 @@ def test_text_files_are_ascii():
     root = Path(__file__).resolve().parents[1]
     files = subprocess.run(["git", "ls-files", "*.txt"], cwd=root, capture_output=True, text=True).stdout.split()
     assert files and all((root / f).read_bytes().isascii() for f in files), files
+
+
+def test_candidate_source_fallback_and_requested_date(tmp_path, monkeypatch):
+    import food_tools
+    from workflow import execute
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("FOODSAFETY_API_KEY", "fixture")
+    trace = []
+    calls = []
+
+    def emit(kind, name, **payload):
+        trace.append({"type": kind, "name": name, "payload": payload})
+
+    def tool(name, argument):
+        calls.append((name, argument))
+        if name == "search":
+            return {"ok": False, "error": "NO_RESULT"}
+        return {"ok": True, "data": [{"id": "1", "메뉴": "달걀찜"}], "source": "fixture"}
+
+    monkeypatch.setattr(food_tools, "call", tool)
+    result = execute("검색", "달걀", lambda: {}, emit, events=trace, conditions={"day": "2026-12-17"})
+    assert calls == [("search", "달걀"), ("kr_recipe", "달걀")]
+    assert result["국내 대안"]["data"][0]["메뉴"] == "달걀찜"
+    assert result["후보 조회 기준"]["요청 날짜"] == "2026-12-17"
+    assert result["후보 조회 기준"]["실제 기준"] == "호출 시점의 카탈로그"
+    assert any(row["type"] == "replan" and row["payload"]["attempt"] == 1 for row in trace)

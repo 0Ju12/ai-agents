@@ -39,7 +39,7 @@ function compact(msg, r) {
   // 서버 응답을 대화 카드에 필요한 값만 남겨 저장한다
   const p = r["계획"] || {},
     command = (r["추적"] || []).find((e) => e.name === "요청 분류")?.payload?.decision,
-    base = { role: "agent", id: uid(), at: Date.now(), command, answer: p["답변"] || "" };
+    base = { role: "agent", id: uid(), at: Date.now(), command, runId: r["실행 ID"], day: r["날짜"], answer: p["답변"] || "" };
   if (p["자동 진행"])
     return {
       ...base,
@@ -48,6 +48,7 @@ function compact(msg, r) {
       picks: p["추천 후보"] || [],
       groups: p["선택지"] || null,
       more: !!p["더보기"],
+      window: p["시간대"] || r["설정"]?.window,
       menu: p["확정 메뉴"] || (p["더보기"] ? "" : p["추천 후보"]?.[0]?.["메뉴"] || ""),
       servings: p["인분"] || 1,
       how: p["판단 방법"] || "",
@@ -211,14 +212,14 @@ function agentCard(m) {
     body += m.done.length ? `<p class="sec">제가 진행한 일</p>${doneList(m)}` : m.note ? `<p>${esc(m.note)}</p>` : m.more ? `<p>이미 보여 드린 메뉴를 빼고 다른 후보를 골랐어요.</p>` : `<p>${esc("조건에 맞는 메뉴가 없어요. 시간이나 조건을 바꿔 말해 주세요.")}</p>`;
     body += m.groups || m.picks.length ? `${m.groups ? "" : '<p class="sec">추천 후보</p>'}${picksList(m)}` : "";
     body += m.menu && !m.more
-      ? `<div class="cta">${btn(`${m.servings}인분 조리 시작`, "agentCook", "btn", "timer", JSON.stringify([m.menu, m.servings]))}${m.cart ? btn("장바구니 보기", "pantry", "btn alt", "shopping-bag") : ""}</div><p class="sec">${esc(m.menu)} 영상</p><div class="media">${mediaBlock(m)}</div>`
+      ? `<div class="cta">${btn(`${m.servings}인분 조리 시작`, "agentCook", "btn", "timer", JSON.stringify([m.menu, m.servings]))}${btn("이 메뉴 일정 저장", "agentSavePlan", "btn alt", "calendar-days", m.id)}${m.cart ? btn("장바구니 보기", "pantry", "btn alt", "shopping-bag") : ""}</div><p class="sec">${esc(m.menu)} 영상</p><div class="media">${mediaBlock(m)}</div>`
       : "";
     body += m.how ? `<p class="footnote">판단 · ${esc(m.how)}${m.why ? " · " + esc(m.why) : ""}</p>` : "";
   } else if (m.kind === "workout") {
     const r = m.routine;
     const ex = r.exercises || [];
     body += `<div class="workout-card"><div class="wk-head"><div class="wk-mini">${ex[0]?.motion ? figureSVG(ex[0].motion, ex[0].prop, { label: ex[0].name }) : disk("dumbbell", "peach")}</div><div><strong>${esc(r.move || r.summary)}</strong><small>${esc(r.level || "")} · ${esc(r.body)} · 휴식 포함 ${r.minutes}분</small></div></div>${r.steps.length ? `<ol class="step-list">${r.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>` : `<p>${esc(r.summary)}</p>`}</div>
-      <div class="cta">${r.steps.length ? btn("운동 모드 시작", "wkStart", "btn", "timer") : ""}${btn("운동 탭에서 보기", "workout", "btn alt", "dumbbell")}</div>
+      <div class="cta">${r.steps.length ? btn("운동 모드 시작", "wkStart", "btn", "timer") : ""}${btn("운동 일정 저장", "agentSavePlan", "btn alt", "calendar-days", m.id)}${btn("운동 탭에서 보기", "workout", "btn alt", "dumbbell")}</div>
       ${(m.options || []).length ? `<p class="sec">다른 선택지</p><div class="picks">${m.options.map((o) => `<article class="pick"><div><strong>${esc(o.title)}</strong><small>${esc(o.why)} · ${esc(o.summary || "")}</small></div>${btn("이걸로", "wkApply", "chip", "", JSON.stringify(o.apply))}</article>`).join("")}</div>` : ""}`;
   } else if (m.kind === "search" || m.kind === "shopping") {
     const command = searchCommand(m);
@@ -248,6 +249,9 @@ function agentCard(m) {
     body += m.detail && results[m.id] ? `<div class="cta">${btn("결과 자세히 보기", "agentDetail", "btn alt", "arrow-up-right", m.id)}</div>` : "";
   }
   const who = personaOf(m);
+  if (m.runId && !(m.detail && results[m.id])) {
+    body += `<div class="cta">${btn("이번 실행 과정", "agentDetail", "linkbtn", "", m.id)}</div>`;
+  }
   return `<div class="bubble agent ${who}" id="m-${m.id}">${avatar(who)}<div class="bubble-body">${signature(who)}${body}<time>${hhmmOf(m.at)}</time></div></div>`;
 }
 
@@ -435,7 +439,29 @@ Object.assign(action, {
     videoPick[menu] = i;
     render();
   },
-  agentDetail: (id) => results[id] && showResult(findMsg(id)?.msg || "결과", results[id]),
+  agentDetail: async (id) => {
+    const entry = findMsg(id);
+    if (entry?.detail && results[id]) return showResult(entry.msg || "결과", results[id]);
+    if (!entry?.runId) return;
+    const logs = await api("/api/logs/default?run_id=" + encodeURIComponent(entry.runId));
+    sheet("이번 실행 과정", trace(logs));
+  },
+  agentSavePlan: (id) => {
+    const entry = findMsg(id);
+    if (!entry) return;
+    const recipe = entry.picks?.find((pick) => pick["메뉴"] === entry.menu);
+    const minutes = Number(entry.routine?.minutes || recipe?.["조리시간(분)"] || catalog.meals.find((meal) => meal.title === entry.menu)?.minutes);
+    const title = entry.routine ? entry.routine.body + " 운동" : entry.menu;
+    return planSheet(null, {
+      title,
+      minutes,
+      day: entry.window?.day || entry.day,
+      start: entry.window?.start,
+      items: entry.routine
+        ? [{kind: "workout", title, minutes, exercises: entry.routine.exercises}]
+        : [{kind: "meal", title, servings: entry.servings, minutes}],
+    });
+  },
   demo: async () => {
     if (!confirm("지금 냉장고와 장바구니를 비우고 예시 재료로 채울까요?")) return;
     const r = await api("/api/demo", "POST", {});

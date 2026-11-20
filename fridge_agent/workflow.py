@@ -6,7 +6,7 @@ import re
 from typing import TypedDict
 from urllib.parse import quote
 from langgraph.graph import StateGraph, START, END
-from agent_roles import FROM_RECIPE, Planner, Worker, REPLAN_LIMIT, assess, diagnose, missing_from_recipe
+from agent_roles import FROM_RECIPE, Planner, Worker, REPLAN_LIMIT, REPAIRABLE, assess, diagnose, missing_from_recipe
 import gateway
 from registry import Task
 from food_tools import ENGLISH
@@ -59,7 +59,7 @@ def wire(graph):
     for label in ("계획", "판정"):
         graph.add_conditional_edges(label, lambda s: "실행" if s["pending"] else "검증", {"실행": "실행", "검증": "검증"})
     graph.add_edge("실행", "판정")
-    graph.add_edge("검증", "응답")
+    graph.add_conditional_edges("검증", lambda s: "실행" if s["pending"] else "응답", {"실행": "실행", "응답": "응답"})
     graph.add_edge("응답", END)
     return graph
 
@@ -74,13 +74,15 @@ def structure():
 
 def execute(command, argument, local, emit, stock=(), events=None, request=None, speak=True, conditions=None):
     events = events if events is not None else []
-    if command in {"도움말", "확인"} or command == "검색" and not argument:
+    if command in {"도움말", "확인"} or command in {"검색", "유산근거"} and not argument:
         emit("node_start", "응답")
         output = {
             "안내": argument
             if command == "확인"
             else "검색할 재료 이름을 알려주세요."
             if command == "검색"
+            else "찾을 국가유산 또는 국보 이름을 입력해 주세요."
+            if command == "유산근거"
             else "추가 두부, 계란 · 물 250 · 검색 달걀 · 메뉴 두부구이"
         }
         emit("evaluation", "실행 검증", **assess(events))
@@ -136,12 +138,25 @@ def execute(command, argument, local, emit, stock=(), events=None, request=None,
             "output": {"tool": task.tool, "decision": report.decision},
         }
 
+    def alternate(s, reason):
+        tasks = Planner.fallback_search(argument, s["results"]) if command == "검색" else []
+        if not tasks or s["replans"] >= REPLAN_LIMIT:
+            return {}
+        count = s["replans"] + 1
+        emit("replan", "국내 후보 조회", attempt=count, reason=reason, reused=list(s["results"]))
+        declare(tasks, "같은 요청을 다른 출처에서 확인")
+        return {"pending": s["pending"] + tasks, "replans": count}
+
     def verify(s):
         tool = s["output"]["tool"]
         r = s["results"][tool]
         candidates = s["candidates"]
         index = s["index"]
         best = list(s["best"])
+        if tool == "search" and not r["ok"]:
+            if s["output"]["decision"] == "escalate" and r.get("error") in REPAIRABLE:
+                return alternate(s, r["error"])
+            return {}
         if tool == "search" and r["ok"]:
             candidates = list({str(x["id"]): x for x in r["data"] if x.get("id") is not None}.values())
             if command == "요리코치" and s["results"]["kr_recipe"]["ok"]:
@@ -150,7 +165,8 @@ def execute(command, argument, local, emit, stock=(), events=None, request=None,
         elif tool == "detail":
             if r["ok"]:
                 known = {ENGLISH.get(item, item).lower() for item in stock}
-                missing = [x for x in r["data"]["ingredients"] if x.lower() not in known]
+                ingredients = r["data"].get("ingredients") or []
+                missing = [x for x in ingredients if x.lower() not in known] if ingredients else ["제공처 재료 정보 없음"]
                 best.append({"조회": r, "미확인 재료": missing, "판정": "영문 재료명 일치 기준"})
                 if not missing or command == "요리코치":
                     return {"best": best}
@@ -160,7 +176,7 @@ def execute(command, argument, local, emit, stock=(), events=None, request=None,
         else:
             return {}
         if index >= len(candidates) or index > REPLAN_LIMIT:
-            return {"best": best, "candidates": candidates, "index": index}
+            return {"best": best, "candidates": candidates, "index": index, **alternate(s, "기존 후보에서 재료가 확인된 메뉴를 찾지 못함")}
         count = s["replans"]
         if tool == "detail":
             if count >= REPLAN_LIMIT:
@@ -191,10 +207,8 @@ def execute(command, argument, local, emit, stock=(), events=None, request=None,
         a = assess(events)
         emit("evaluation", "실행 검증", **a)
         diagnose(a, emit)
-        if a["status"] == "이상" and s["replans"] < REPLAN_LIMIT:
-            emit("replan", "검증 경고 반영", reason=a["warnings"], attempt=s["replans"] + 1)
-            declare([], "중복 또는 비계획 작업을 제외하고 확인된 결과로 종료")
-            return {"pending": [], "replans": s["replans"] + 1}
+        if a["status"] == "이상":
+            return alternate(s, a["warnings"])
         return {}
 
     def respond(s):
@@ -206,9 +220,15 @@ def execute(command, argument, local, emit, stock=(), events=None, request=None,
 
     def compose(s):
         results = s["results"]
-        if command == "질문" and "knowledge" in results:
-            r = results["knowledge"]
+        if command in {"질문", "유산근거"}:
+            r = results["heritage_knowledge" if command == "유산근거" else "knowledge"]
             if not r["ok"]:
+                if command == "유산근거":
+                    message = {
+                        "NO_INDEX": "2회차 국가유산 색인이 아직 연결되지 않았습니다.",
+                        "MISSING_KEY": "국가유산 검색에 사용할 임베딩 키를 설정하세요.",
+                    }.get(r["error"], "국가유산 색인에서 근거를 가져오지 못했습니다.")
+                    return {"output": {"안내": message, "근거 문서": [], "오류": r["error"]}}
                 why = {"NO_RESULT": "한끼 안내 문서에서 관련 근거를 찾지 못했어요. 식단·운동·식품 안전·생활 습관 질문을 해 주세요.", "NO_INDEX": "근거 문서 색인을 만들지 못했어요.", "RAG_DEPENDENCY_MISSING": "근거 검색 라이브러리(chromadb)가 설치되지 않았어요."}
                 return {"output": {"안내": why.get(r["error"], "근거를 찾지 못했어요."), "근거 문서": [], "오류": r["error"]}}
             top = r["data"][0]
@@ -259,6 +279,13 @@ def execute(command, argument, local, emit, stock=(), events=None, request=None,
                 if s["best"]
                 else {"조회": results.get("detail", results["search"])}
             )
+            result["후보 조회 기준"] = {
+                "요청 날짜": (conditions or {}).get("day"),
+                "실제 기준": "호출 시점의 카탈로그",
+                "안내": "날짜별 카탈로그가 없어 조회 시점의 메뉴 목록을 사용합니다.",
+            }
+            if "kr_recipe" in results:
+                result["국내 대안"] = results["kr_recipe"]
             if s["replans"] >= REPLAN_LIMIT:
                 result["안내"] = "재계획 상한 도달 · 확인한 후보에서 선택했습니다."
             elif result.get("미확인 재료"):

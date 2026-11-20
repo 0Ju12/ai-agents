@@ -1,5 +1,5 @@
 {
-  "observed_kst": "2026-11-19T08:40:46+09:00",
+  "observed_kst": "2026-11-20T13:17:59+09:00",
   "calls": [
     {
       "tool": "search",
@@ -12,14 +12,14 @@
         "title"
       ],
       "sample_id": "53120",
-      "ms": 484.3
+      "ms": 650.5
     },
     {
       "tool": "detail",
       "from_search_id": "53120",
       "ok": true,
       "title": "Æbleskiver",
-      "ms": 343.3
+      "ms": 526.6
     },
     {
       "tool": "nutrition",
@@ -34,7 +34,7 @@
         "basis"
       ],
       "sample_id": null,
-      "ms": 1363.0
+      "ms": 1346.2
     },
     {
       "tool": "usda",
@@ -49,7 +49,7 @@
         "nutrients_per_100g"
       ],
       "sample_id": 167722,
-      "ms": 1195.2
+      "ms": 1080.5
     },
     {
       "tool": "wger",
@@ -65,7 +65,7 @@
         "license"
       ],
       "sample_id": 81,
-      "ms": 1326.9
+      "ms": 1490.4
     }
   ]
 }
