@@ -394,3 +394,43 @@ def test_oauth_state_is_one_time_and_household_scoped(tmp_path, monkeypatch):
     assert "unit-refresh" not in client.get("/api/export").text
     client.delete("/api/calendar/connection")
     assert client.get("/api/calendar/status").json()["provider"] == "local"
+
+
+@pytest.mark.parametrize("count, warned", [(2, False), (3, True), (4, True)])
+def test_replan_warning_boundary(count, warned):
+    event = {"name": "후보 교체", "type": "replan", "payload": {}}
+    assert bool(assess([event] * count)["warnings"]) == warned
+
+
+@pytest.mark.parametrize("middle, warned", [(None, True), (("search", True), False), (("detail", False), False)])
+def test_consecutive_tool_failures(middle, warned):
+    outcomes = [("search", False)]
+    if middle:
+        outcomes.append(middle)
+    outcomes.append(("search", False))
+    events = [{"type": "plan", "name": "계획", "payload": {"tools": ["search", "detail"]}}]
+    for index, (tool, ok) in enumerate(outcomes):
+        events.append({"type": "tool_call", "name": tool, "payload": {"argument": str(index)}})
+        events.append({"type": "tool_result", "name": tool, "payload": {"ok": ok}})
+    assert assess(events)["warnings"] == (["도구 연속 실패 · search"] if warned else [])
+
+
+def test_log_http_contract_and_detached_agent(monkeypatch):
+    client = TestClient(api.app)
+    message = {"message": "물 250"}
+    assert client.post("/api/chat", json=message).status_code == 200
+    session, = client.get("/api/logs").json()
+    path = "/api/logs/" + session["session_id"]
+    assert client.get(path).json()
+    assert client.put(path, json={}).status_code == 405
+    assert client.delete(path).status_code == 204
+    assert client.get(path).status_code == 404
+    monkeypatch.setattr(api.LoggingAgent, "attach", lambda self, bus: self)
+    assert client.post("/api/chat", json=message).status_code == 200
+    assert api.state()["오늘 기록"]["water_ml"] == 500
+    assert client.get("/api/logs").json() == []
+
+
+def test_tool_contract_rejects_invalid_arguments():
+    for kwargs in ({}, {"argument": ""}, {"argument": "123", "foo": 1}, {"argument": 123}):
+        assert food_tools.call("detail", **kwargs) == {"ok": False, "error": "INVALID_INPUT"}

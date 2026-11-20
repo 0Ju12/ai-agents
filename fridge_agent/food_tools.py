@@ -19,7 +19,10 @@ def read(url):
         return json.load(response)
 
 
-def call(tool, argument):
+def call(tool, argument=None, **unexpected):
+    if unexpected or not isinstance(argument, str) or not argument.strip():
+        return {"ok": False, "error": "INVALID_INPUT"}
+
     from connections import EXTERNAL, lookup as source_lookup
 
     if tool in EXTERNAL:

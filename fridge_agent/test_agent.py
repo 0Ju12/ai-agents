@@ -39,7 +39,11 @@ def test_graph_scenarios(tmp_path, monkeypatch):
             return {"ok":True,"data":[{"id":str(i)} for i in range(6)]}
         return {"ok":False,"error":"NO_RESULT"}
     monkeypatch.setattr(food_tools,"call",missing)
-    assert "상한" in run("검색 달걀")["계획"]["안내"]
+    result = run("검색 달걀")
+    assert "상한" in result["계획"]["안내"]
+    assessment, = [e["payload"] for e in result["추적"] if e["type"] == "evaluation"]
+    assert assessment["replans"] == 3
+    assert {"도구 연속 실패 · detail", "재계획 상한 도달"} <= set(assessment["warnings"])
     assert calls==[("search","달걀")]+[("detail",str(i)) for i in range(4)]
     run("도움말")
     assert len(calls)==5

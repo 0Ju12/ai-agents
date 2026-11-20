@@ -17,6 +17,7 @@ def assess(events):
     planned = set()
     called = set()
     warnings = []
+    previous_failed_tool = None
     evidence = False
     n = 0
     for e in events:
@@ -33,11 +34,19 @@ def assess(events):
                 warnings.append("같은 입력 반복 · " + e["name"])
             called.add(key)
             evidence = True
+        elif kind == "tool_result":
+            failed_tool = e["name"] if p.get("ok") is False else None
+            if failed_tool and failed_tool == previous_failed_tool:
+                warning = "도구 연속 실패 · " + failed_tool
+                if warning not in warnings:
+                    warnings.append(warning)
+            previous_failed_tool = failed_tool
+            evidence = True
         elif kind == "replan":
             n += 1
             evidence = True
-    if n > REPLAN_LIMIT:
-        warnings.append("재계획 상한 초과")
+    if n >= REPLAN_LIMIT:
+        warnings.append("재계획 상한 도달")
     return {
         "status": "이상" if warnings else "정상" if evidence else "판정 불가",
         "warnings": warnings,
