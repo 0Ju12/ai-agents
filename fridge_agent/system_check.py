@@ -180,6 +180,12 @@ def check(out, base, executable):
         d.get_by_role("button", name="냉장고에 반영").click()
         d.get_by_text("60g 부족", exact=True).wait_for()
         snap("recipe-portions-mobile")
+        d.get_by_role("button", name="2단계", exact=True).click()
+        technique = d.locator(".technique-photo img")
+        technique.evaluate("(img) => img.decode()")
+        assert technique.get_attribute("src") == "/static/techniques/chop.webp"
+        snap("cabbage-chopping-mobile")
+        d.get_by_role("button", name="1단계", exact=True).click()
         cart = d.locator('[data-do="guideCart"]')
         cart.click()
         page.wait_for_url("**/#pantry")
@@ -198,6 +204,42 @@ def check(out, base, executable):
         assert d.locator("#cook-clock").inner_text() == "00:00"
         d.get_by_role("button", name="다시 시작").click()
         assert d.locator("#cook-clock").inner_text() == "06:00"
+        page.keyboard.press("Escape")
+        page.goto(base + "/#recipes")
+        page.get_by_label("메뉴 검색").fill("새우 가지 토마토스튜")
+        page.locator("#meal-list").get_by_role("button", name="조리 모드").click()
+        d.get_by_role("button", name="2단계", exact=True).wait_for()
+        page.keyboard.press("Escape")
+        page.goto(base + "/#agent")
+        page.evaluate("""() => {
+          const rows = JSON.parse(localStorage.getItem("hk-thread-v1"));
+          rows.push({role: "user", text: "어제 기록", at: Date.now() - 86400000});
+          localStorage.setItem("hk-thread-v1", JSON.stringify(rows));
+        }""")
+        page.reload()
+        days = page.get_by_label("대화 날짜")
+        days.wait_for()
+        assert page.get_by_text("어제 기록", exact=True).count() == 0
+        days.select_option(index=1)
+        page.get_by_text("어제 기록", exact=True).wait_for()
+        page.get_by_role("button", name="문구 수정").click()
+        d.get_by_label("기록할 문구").fill("어제 저녁 기록")
+        d.get_by_role("button", name="저장", exact=True).click()
+        page.get_by_text("어제 저녁 기록", exact=True).wait_for()
+        snap("coach-history-mobile")
+        page.once("dialog", lambda prompt: prompt.dismiss())
+        page.get_by_role("button", name="이 날짜 대화 지우기").click()
+        page.get_by_text("어제 저녁 기록", exact=True).wait_for()
+        page.once("dialog", lambda prompt: prompt.accept())
+        page.get_by_role("button", name="이 날짜 대화 지우기").click()
+        assert days.locator("option").count() == 1
+        assert page.locator(".bubble.user").count() > 0
+        page.once("dialog", lambda prompt: prompt.accept())
+        page.get_by_role("button", name="전체 대화 초기화").click()
+        page.reload()
+        days.wait_for()
+        assert page.locator(".bubble.user").count() == 0
+        assert water() == before + 500
         assert not errs, errs
         print(
             "PASS · pantry, cook, intake, exercise, water, shopping, calendar, coach portraits, search cards, execution trace, retry after reload, saved recipes, measured lots, multi-serving cart and timer restart"

@@ -330,7 +330,8 @@ const action = {
   eat: (n) => send("섭취 " + n),
   shopping: (n) => send("쇼핑 " + n, {}, true),
   videos: (n) => send("영상 " + n, {}, true),
-  recipeShelf: (label) => { recipeShelf = label; render(); },
+  moreRecipes: () => { recipeLimit += 30; $("#meal-list").innerHTML = recipeList(recipeQuery.trim()); },
+  recipeShelf: (label) => { recipeShelf = label; recipeLimit = 30; render(); },
   favoriteRecipe: (title) => send((st["찜한 레시피"].includes(title) ? "찜해제 " : "레시피찜 ") + title),
   measureLot: (id) => measureLotForm(id),
   choose: (n) => send("메뉴 " + n, {}, true),
@@ -390,7 +391,7 @@ const action = {
       "내 기록 삭제",
       form(
         "erase",
-        "<p>이 기기의 냉장고·건강 기록·일정·실행 이력을 지웁니다.</p>" +
+        "<p>이 기기의 냉장고·건강 기록·일정·실행 이력·이 브라우저의 코치 대화를 지웁니다.</p>" +
           field("확인을 위해 ‘삭제’를 입력하세요.", "confirm", "text", "", "required"),
         "내 기록 삭제",
       ),
@@ -477,6 +478,7 @@ const forms = {
   },
   erase: async (v) => {
     await api("/api/data?confirm=" + encodeURIComponent(v.confirm), "DELETE");
+    resetCoachHistory();
     close();
     last = null;
     await start();
@@ -517,6 +519,7 @@ document.addEventListener("submit", async (e) => {
 });
 document.addEventListener("input", (e) => {
   if (e.target.id === "meal-filter") {
+    recipeLimit = 30;
     recipeQuery = e.target.value;
     $("#meal-list").innerHTML = recipeList(recipeQuery.trim());
   }
@@ -528,6 +531,7 @@ dialog.addEventListener("click", (e) => {
   }
 });
 window.addEventListener("hashchange", () => {
+  if (route() !== "agent") archiveDay = "";
   close();
   render();
   window.scrollTo(0, 0);

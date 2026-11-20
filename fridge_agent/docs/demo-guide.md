@@ -79,7 +79,7 @@ python -m playwright install chromium
 python fridge_agent/system_check.py --screens my-screens
 ```
 
-Linux에 시스템 Chromium이 이미 있으면 마지막 명령에 `--chromium /usr/bin/chromium`을 붙일 수 있다. 자동 촬영은 자체 임시 서버·DB를 사용한다. 완료 기준은 터미널의 PASS와 출력 폴더의 WebP 12장이다. 캡처를 열어 글자, 재료 수량, 답변 주체가 읽히는지 확인한다.
+Linux에 시스템 Chromium이 이미 있으면 마지막 명령에 `--chromium /usr/bin/chromium`을 붙일 수 있다. 자동 촬영은 자체 임시 서버·DB를 사용한다. 완료 기준은 터미널의 PASS와 출력 폴더의 WebP 14장이다. 캡처를 열어 글자, 재료 수량, 답변 주체가 읽히는지 확인한다.
 
 화면에서 재현이 어려운 ‘같은 도구 연속 실패’와 ‘재계획 3회 도달’은 다음 명령의 테스트 이름과 PASSED가 함께 보이게 찍는다. 실계정 점검 4건의 실행 조건은 [2·3일차 점검표](course-check.md)에 있다.
 
@@ -88,3 +88,5 @@ python -m pytest -v fridge_agent/test_agent.py::test_graph_scenarios fridge_agen
 ```
 
 제출할 때 각 캡처 아래에 **입력 / 기대 결과 / 관찰 결과 / 통과·실패·미확인 / 사용 환경**을 한 줄씩 적는다. 예를 들어 “양배추 140g, 2인분 선택 / 60g 부족 예상 / 화면에 60g 부족 표시 / 통과 / Chromium 모바일 너비”처럼 쓴다. 개인정보나 계정 설정이 필요한 기능에는 시험한 계정의 종류와 기기 버전만 적는다.
+
+현재 버전에서는 [양배추 썰기](../screens/cabbage-chopping-mobile.webp)와 [날짜별 대화 관리](../screens/coach-history-mobile.webp)도 자동 촬영한다. 코치에서 이전 날짜를 선택해 문구를 수정하고 해당 날짜만 지운 뒤 오늘 대화가 유지되는지 확인한다. 전체 대화 초기화 후에는 오늘 대화도 비워지고 물 섭취량은 그대로여야 한다.

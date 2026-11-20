@@ -32,6 +32,7 @@ const PARTS = [
   ["armF", ["n", "e1", "w1"], "#224c3b"],
 ];
 function morph(attr, a, b, dur) {
+  if (a === b) return "";
   return `<animate attributeName="${attr}" values="${a};${b};${a}" dur="${dur}s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.5;1" keySplines=".45 0 .55 1;.45 0 .55 1"/>`;
 }
 function propSVG(prop) {
@@ -49,7 +50,7 @@ function figureSVG(motion, prop, opts = {}) {
   const F = FIGURE[motion] || FIGURE.walk,
     [A, B] = F.poses,
     dur = (F.dur * (opts.speed || 1)).toFixed(2),
-    still = opts.still || matchMedia("(prefers-reduced-motion: reduce)").matches;
+    still = opts.still || opts.small || matchMedia("(prefers-reduced-motion: reduce)").matches;
   const usedProp = prop === "dumbbell" ? F.prop === "dumbbell" ? null : F.prop : prop || F.prop;
   const bell = prop === "dumbbell" || F.prop === "dumbbell";
   const lines = PARTS.map(([, ks, color]) => `<path d="${seg(A, ks)}" stroke="${color}" stroke-width="${ks.length === 2 ? 16 : 12}" stroke-linecap="round" stroke-linejoin="round" fill="none">${still ? "" : morph("d", seg(A, ks), seg(B, ks), dur)}</path>`).join("");

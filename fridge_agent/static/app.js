@@ -236,6 +236,7 @@ function leftoverRows() {
         .join("")
     : '<p class="muted">조리를 기록하면 남은 분량이 여기에 표시돼요.</p>';
 }
+let recipeLimit = 30;
 let recipeShelf = "전체", recipeQuery = "";
 function recipeShelfTabs() {
   return ["전체", "찜한 레시피", "최근 조리"].map((label) =>
@@ -265,12 +266,12 @@ function recipeList(term) {
     return `<p class="empty">${message}</p>`;
   }
   return (
-    rows
+    `<p class="hint">메뉴 ${rows.length}개</p>` + rows.slice(0, recipeLimit)
       .map(
         (m) =>
           `<div class="list-line recipe-entry"><div><strong>${esc(m.title)}</strong><small>${fmt(m.minutes)}분 · ${esc(Object.keys(m.grams).join(", "))}</small></div><div class="btnbar">${btn(saved.has(m.title) ? "찜 해제" : "찜하기", "favoriteRecipe", saved.has(m.title) ? "chip on" : "chip", "", m.title)}${btn("조리 모드", "cookMode", "chip", "timer", m.title)}${btn("선택", "choose", "chip", "", m.title)}</div></div>`,
       )
-      .join("")
+      .join("") + (rows.length > recipeLimit ? btn("메뉴 더 보기", "moreRecipes", "btn alt") : "")
   );
 }
 function sourceForm(cmd, label, submit) {
@@ -336,4 +337,8 @@ function render() {
     workout: workoutView,
     journal: journalView,
   }[k]();
+  if (k === "agent" && archiveDay) {
+    document.querySelectorAll("#chat-log .agent button:not([data-do=agentDetail]), #chat-log .agent input")
+      .forEach((control) => { control.disabled = true; });
+  }
 }

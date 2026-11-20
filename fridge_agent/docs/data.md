@@ -40,8 +40,10 @@ USDA ZIP을 받아 `python assets/import_usda.py <zip경로>`로 재생성할 �
 
 | 자료 | 출처 | 이용 조건 |
 | --- | --- | --- |
-| 1인분 레시피 110종 (`assets/recipes.json`) | 한끼에서 직접 작성. 모든 재료가 아래 영양 참조에 있음 | 저장소 라이선스 |
+| 기본 레시피 110종 (`assets/recipes.json`), 조합 레시피 444종 (`domain/menu_variations.py`) | 한끼에서 직접 작성. 모든 재료가 아래 영양 참조에 있음 | 저장소 라이선스 |
 | 재료 영양 참조 56종 (`assets/nutrition.json`) | USDA FoodData Central SR Legacy (2018-04) 원본 CSV, `assets/import_usda.py`로 재생성 | 미국 정부 저작물(퍼블릭 도메인) |
 | 운동 실제 시연 사진 10종 | [free-exercise-db](https://github.com/yuhonas/free-exercise-db) 이미지(시작·끝 자세), 서버가 중계·캐시 | Unlicense(퍼블릭 도메인). 사진 내용을 동작 설명과 대조해 맞는 것만 사용 |
 | 운동 하는 방법(준비·동작·호흡·주의) 27종 | 한끼에서 직접 작성한 일반 생활 운동 안내 | 전문가 처방이 아님을 화면에 표시 |
 | 안내 문서 31편 (`assets/guides.json`) | 공개 자료(2020 한국인 영양소 섭취기준, 식약처 식품안전 수칙, WHO 신체활동 지침, 진료지침 등)를 한끼가 요약하고 각 문서에 출처 링크를 붙임 | 원문은 각 기관의 이용 조건을 따른다. 요약문은 저장소 라이선스 |
+
+조리 단계에 원본 사진이나 검수된 영상이 없으면 한끼용으로 생성한 조리 기법 이미지 9종을 표시한다. 화면에 AI 예시임을 표시하며 각 메뉴의 실제 촬영 사진과 구분한다.

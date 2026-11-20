@@ -4,6 +4,8 @@ import json
 import sqlite3
 from pathlib import Path
 
+from .menu_variations import combinations
+
 ASSETS = Path(__file__).resolve().parents[1] / "assets"
 FIELDS = ("kcal", "protein_g", "carb_g", "fat_g", "fiber_g", "sodium_mg")
 ALIASES = {
@@ -66,10 +68,12 @@ def load_catalog(path):
             "INSERT OR REPLACE INTO ingredients VALUES(?,?,?)",
             [(r["name"], r["fdc_id"], json.dumps(r, ensure_ascii=False)) for r in ingredients],
         )
+        original_titles = {row[0] for row in recipes}
+        recipes.extend(row for row in combinations() if row[0] not in original_titles)
         for title, minutes, parts, steps in recipes:
             db.execute(
                 "INSERT OR REPLACE INTO recipes VALUES(?,?,?,?)",
-                (title, minutes, json.dumps(steps, ensure_ascii=False), "한 끼 · 1인분 기준 레시피"),
+                (title, minutes, json.dumps(steps, ensure_ascii=False), "한 끼 · 1인분 기준 레시피" if title in original_titles else "한끼 조합 레시피 · 1인분"),
             )
             db.execute("DELETE FROM portions WHERE title=?", (title,))
             db.executemany("INSERT INTO portions VALUES(?,?,?)", [(title, k, v) for k, v in parts.items()])

@@ -1,8 +1,11 @@
 "use strict";
 // 한끼 코치(Agent) 대화 화면: 상황을 말하면 추천·메뉴 확정·장보기·영상·조리 모드·운동·알림까지 이어서 진행한다.
-// 대화 기록은 이 기기에만 저장한다(localStorage, 최근 40개). 실행 과정 전체는 서버의 실행 로그에 남는다.
+// 대화 기록은 이 기기에만 저장한다(localStorage, 날짜별 최근 40개). 실행 과정 전체는 서버의 실행 로그에 남는다.
 const THREAD_KEY = "hk-thread-v1";
 const STEPS = ["상황을 읽고 있어요", "냉장고와 소비기한을 비교하고 있어요", "후보 메뉴를 고르고 있어요", "할 일을 정리하고 있어요"];
+const koreaDate = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" });
+const chatDay = (at = Date.now()) => koreaDate.format(at);
+let archiveDay = "";
 let thread = loadThread(),
   waiting = null,
   waitTimer = 0,
@@ -13,19 +16,24 @@ let thread = loadThread(),
 function loadThread() {
   try {
     const t = JSON.parse(localStorage.getItem(THREAD_KEY) || "[]");
-    return Array.isArray(t) ? t : [];
+    return Array.isArray(t) ? t.filter((entry) => entry && Number.isFinite(entry.at)) : [];
   } catch {
     return [];
   }
 }
 function saveThread() {
-  thread = thread.slice(-40);
+  const counts = new Map();
+  thread = thread.slice().reverse().filter((entry) => {
+    const day = chatDay(entry.at);
+    counts.set(day, (counts.get(day) || 0) + 1);
+    return counts.get(day) <= 40;
+  }).reverse();
   try {
     localStorage.setItem(THREAD_KEY, JSON.stringify(thread));
-  } catch {}
+  } catch { note("이 기기의 대화 저장 공간이 부족해요."); }
 }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-const hhmmOf = (t) => new Date(t).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+const hhmmOf = (t) => new Date(t).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit" });
 
 function compact(msg, r) {
   // 서버 응답을 대화 카드에 필요한 값만 남겨 저장한다
@@ -248,15 +256,23 @@ function typing() {
 }
 
 function agentView() {
-  const msgs = thread
-    .map((m) => (m.role === "user" ? `<div class="bubble user"><div class="bubble-body"><p>${esc(m.text)}</p><time>${hhmmOf(m.at)}</time></div></div>` : agentCard(m)))
-    .join("");
+  const today = chatDay();
+  const day = archiveDay || today;
+  const history = thread.filter((entry) => chatDay(entry.at) === day);
+  const days = [...new Set([today, ...thread.map((entry) => chatDay(entry.at))])].sort().reverse();
+  const msgs = history.map((m) => m.role === "user"
+    ? `<div class="bubble user"><div class="bubble-body"><p>${esc(m.text)}</p><time>${hhmmOf(m.at)}</time> ${btn("문구 수정", "editChatText", "linkbtn", "", thread.indexOf(m).toString())}</div></div>`
+    : agentCard(m)).join("");
+  const archived = day !== today;
   return `<div class="chat">
-    <div class="chat-head"><div><div class="eyeline">AI 코치</div><h1>한끼 코치</h1></div>${thread.length ? btn("대화 지우기", "agentClear", "linkbtn", "trash-2") : ""}</div>
-    <div class="chat-log" id="chat-log" aria-live="polite">${welcome()}${msgs}${typing()}</div>
-    <form class="composer" data-form="agentAsk"><div class="chips">${chipsFor().map((x) => btn(x, "agentSay", "chip", "", x)).join("")}</div>
+    <div class="chat-head"><h1>한끼 코치</h1></div>
+    <div class="chat-history-tools"><label>대화 날짜 <select id="chat-day" ${waiting ? "disabled" : ""}>${days.map((value) => `<option value="${value}" ${value === day ? "selected" : ""}>${value === today ? "오늘 · " : ""}${value}</option>`).join("")}</select></label>
+    ${history.length ? btn("이 날짜 대화 지우기", "agentClearDay", "linkbtn", "trash-2") : ""}
+    ${thread.length ? btn("전체 대화 초기화", "agentClear", "linkbtn", "trash-2") : ""}</div>
+    <div class="chat-log" id="chat-log" aria-live="polite">${archived ? "" : welcome()}${msgs}${typing()}</div>
+    ${archived ? btn("오늘 대화로 돌아가기", "chatToday", "btn alt") + "</div>" : `    <form class="composer" data-form="agentAsk"><div class="chips">${chipsFor().map((x) => btn(x, "agentSay", "chip", "", x)).join("")}</div>
       <div class="composer-row"><label class="sr" for="agent-input">지금 상황</label><textarea id="agent-input" name="message" rows="1" maxlength="1000" required placeholder="지금 상황을 말해 주세요"></textarea><button class="send" type="submit" aria-label="보내기" ${waiting ? "disabled" : ""}>${ic("send")}</button></div>
-      <p class="footnote">일반 생활 참고 정보예요. 질환·치료는 의료진과 상의하세요.</p></form></div>`;
+      <p class="footnote">일반 생활 참고 정보예요. 질환·치료는 의료진과 상의하세요.</p></form></div>`}`;
 }
 
 function scrollChat() {
@@ -268,8 +284,10 @@ function scrollChat() {
 async function agentAsk(text, failed = null) {
   text = String(text || "").trim();
   if (!text || waiting) return;
+  archiveDay = "";
+  const started = failed?.at || Date.now();
   const requestId = failed?.requestId || uid();
-  if (!failed) thread.push({ role: "user", text, at: Date.now() });
+  if (!failed) thread.push({ role: "user", text, at: started });
   saveThread();
   waiting = { step: 0 };
   if (route() !== "agent") go("agent");
@@ -288,12 +306,13 @@ async function agentAsk(text, failed = null) {
     st = failed ? await api("/api/state") : { ...r, 계획: r["현재 추천"] };
     if (failed) thread = thread.filter((entry) => entry !== failed);
     const m = compact(text, r);
+    m.at = started;
     results[m.id] = r;
     thread.push(m);
     if (m.kind === "auto" && m.menu) loadMedia(m.menu);
   } catch (err) {
     if (failed) Object.assign(failed, { note: err.message, requestId });
-    else thread.push({ role: "agent", id: uid(), at: Date.now(), kind: "error", note: err.message, retry: text, requestId });
+    else thread.push({ role: "agent", id: uid(), at: started, kind: "error", note: err.message, retry: text, requestId });
   } finally {
     waiting = null;
     clearInterval(waitTimer);
@@ -336,6 +355,7 @@ function linkForm(menu) {
 }
 
 function agentResult(msg, r) {
+  archiveDay = "";
   // 다른 화면에서 자동 진행 결과가 오면 대화 기록에 넣고 코치 화면으로 이동
   thread.push({ role: "user", text: msg, at: Date.now() });
   const m = compact(msg, r);
@@ -355,10 +375,28 @@ Object.assign(action, {
     const failed = findMsg(id);
     if (failed?.kind === "error") return agentAsk(failed.retry, failed);
   },
-  agentClear: () => {
-    if (!confirm("이 기기의 코치 대화 기록을 지울까요? (실행 로그는 서버에 남아요)")) return;
-    thread = [];
+  chatToday: () => { archiveDay = ""; render(); },
+  editChatText: (index) => {
+    const entry = thread[Number(index)];
+    if (waiting || entry?.role !== "user") return;
+    sheet("대화 문구 수정", form("editChatText",
+      field("기록할 문구", "text", "text", entry.text, "required maxlength=1000") +
+      `<input type="hidden" name="index" value="${Number(index)}"><input type="hidden" name="at" value="${entry.at}">` +
+      '<p class="hint">이 문구만 수정해요. 코치에게 다시 보내거나 식사·운동 기록을 바꾸지 않아요.</p>'));
+
+  },
+  agentClearDay: () => {
+    const day = archiveDay || chatDay();
+    if (waiting || !confirm(day + "의 코치 대화를 지울까요? 식사·운동 기록과 실행 로그는 유지됩니다.")) return;
+    for (const entry of thread.filter((m) => chatDay(m.at) === day)) delete results[entry.id];
+    thread = thread.filter((m) => chatDay(m.at) !== day);
+    archiveDay = "";
     saveThread();
+    render();
+  },
+  agentClear: () => {
+    if (waiting || !confirm("이 기기의 모든 날짜 코치 대화를 지울까요? 식사·운동 기록과 실행 로그는 유지됩니다.")) return;
+    resetCoachHistory();
     render();
   },
   agentChoose: async (raw) => {
@@ -410,6 +448,15 @@ Object.assign(action, {
   },
 });
 Object.assign(forms, {
+  editChatText: (v) => {
+    const entry = thread[Number(v.index)];
+    if (entry?.role !== "user" || entry.at !== Number(v.at)) return note("대화가 변경됐어요. 다시 선택해 주세요.");
+    if (!v.text.trim()) return note("문구를 입력해 주세요.");
+    entry.text = v.text.trim().slice(0, 1000);
+    saveThread();
+    close();
+    render();
+  },
   agentAsk: (v, f) => {
     f.reset();
     return agentAsk(v.message);
@@ -438,3 +485,32 @@ document.addEventListener("input", (e) => {
     e.target.style.height = Math.min(140, e.target.scrollHeight) + "px";
   }
 });
+
+function resetCoachHistory() {
+  thread = [];
+  results = {};
+  archiveDay = "";
+  localStorage.removeItem(THREAD_KEY);
+}
+document.addEventListener("change", (event) => {
+  if (event.target.id === "chat-day") {
+    archiveDay = event.target.value === chatDay() ? "" : event.target.value;
+    render();
+  }
+});
+window.addEventListener("storage", (e) => {
+  if (e.key !== THREAD_KEY && e.key !== null) return;
+  thread = loadThread();
+  if (!thread.some((entry) => chatDay(entry.at) === archiveDay)) archiveDay = "";
+  if (route() === "agent") render();
+});
+
+function scheduleChatMidnight() {
+  const now = Date.now();
+  const tomorrow = Date.parse(chatDay(now) + "T00:00:00+09:00") + 86400000;
+  setTimeout(() => {
+    if (route() === "agent") render();
+    scheduleChatMidnight();
+  }, tomorrow - now + 100);
+}
+scheduleChatMidnight();

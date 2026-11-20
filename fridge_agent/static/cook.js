@@ -32,26 +32,6 @@ let tab = "anim",
   mediaInfo = null,
   videoAt = 0,
   igLoaded = false;
-function fxLayer(card) {
-  // 동작별 효과: 김·기포(끓이기·찌기·데치기), 기름 튐(볶기·굽기), 재료 떨어짐(넣기), 휘젓기(섞기), 칼질(썰기)
-  const anim = card["애니메이션"],
-    items = card["재료"].length ? card["재료"] : [{ 아이콘: guide["대표 아이콘"] }];
-  const steam = `<div class="fx-steam"><i></i><i></i><i></i><i></i></div>`;
-  const sparks = `<div class="fx-sparks">${"<i></i>".repeat(8)}</div>`;
-  const drops = `<div class="fx-drop">${items.map((x, i) => `<span style="--i:${i}">${esc(x["아이콘"])}</span>`).join("")}</div>`;
-  return (
-    {
-      boil: steam,
-      steam: steam,
-      blanch: steam + drops,
-      stir: sparks + `<div class="fx-toss">${items.map((x, i) => `<span style="--i:${i}">${esc(x["아이콘"])}</span>`).join("")}</div>`,
-      grill: sparks,
-      drop: drops,
-      mix: `<div class="fx-swirl"></div>`,
-      chop: `<div class="fx-knife">🔪</div>`,
-    }[anim] || ""
-  );
-}
 function prepBoard() {
   const tiles = guide["재료 합계"].map((x) => {
     const name = x["이름"], grams = x["분량(g)"];
@@ -69,16 +49,19 @@ function prepBoard() {
 }
 function stage(card) {
   if (card["종류"] === "prep") return prepBoard();
-  // 우선순위: 검수 승인된 AI 클립 → 단계 사진 + 움직임(깊이 맵이 있으면 2.5D) → 재료 아이콘 애니메이션
-  if (card["클립"])
-    return `<figure class="cook-photo"><video src="${esc(card["클립"])}" autoplay muted loop playsinline aria-label="${esc(card["순서"] + "단계 조리 장면")}"></video><figcaption>AI 생성 조리 장면 · 검수 완료 · 실제와 다를 수 있어요</figcaption></figure>`;
-  if (card["사진"])
-    return `<figure class="cook-photo cook-scene anim-${esc(card["애니메이션"])}"><img class="kb" src="${esc(card["사진"])}" alt="${esc(card["순서"] + "단계 조리 사진")}" onerror="this.closest('figure').classList.add('broken')">${card["깊이"] ? `<canvas class="depth3d" data-img="${esc(card["사진"])}" data-depth="${esc(card["깊이"])}" aria-hidden="true"></canvas>` : ""}<div class="scene-fx" aria-hidden="true">${fxLayer(card)}</div><figcaption>식품안전나라 조리 과정 사진${card["깊이"] ? " · 입체 움직임" : ""}</figcaption></figure>`;
-  return kitchenScene(card, guide["대표 아이콘"]);
+  const action = card["애니메이션"];
+  const technique = ["chop", "stir", "grill", "boil", "blanch", "steam", "mix", "drop"].includes(action) ? action : "ready";
+  const example = "/static/techniques/" + technique + ".webp";
+  if (card["클립"]) {
+    const autoplay = matchMedia("(prefers-reduced-motion: reduce)").matches ? "" : "autoplay";
+    return `<figure class="cook-photo"><video controls ${autoplay} muted playsinline poster="${example}" src="${esc(card["클립"])}"></video><figcaption>검수된 AI 조리 영상</figcaption></figure>`;
+  }
+  const caption = card["사진"] ? "식품안전나라 · 단계 사진" : "조리 기법 예시 · AI 이미지";
+  return `<figure class="technique-photo"><img src="${esc(card["사진"] || example)}" alt="${esc(card["동작"] || "조리")} 기법 예시" data-fallback="${example}"><figcaption>${caption}</figcaption></figure>`;
 }
 function tabs() {
   return `<div class="cook-tabs" role="tablist">${[
-    ["anim", "애니메이션"],
+    ["anim", "조리 장면"],
     ["video", "영상"],
     ["social", "인기 레시피"],
   ]
@@ -153,7 +136,12 @@ function cookCard() {
 }
 function paint() {
   $("#sheet-body").innerHTML = cookCard();
-  document.querySelectorAll("#sheet-body canvas.depth3d").forEach(depth3d);
+  const photo = document.querySelector("#sheet-body .technique-photo img");
+  if (photo) photo.onerror = () => {
+    photo.onerror = null;
+    photo.src = photo.dataset.fallback;
+    photo.nextElementSibling.textContent = "조리 기법 예시 · AI 이미지";
+  };
   if (tab === "social" && mediaInfo?.instagram?.ok) loadInstagram();
 }
 function showStep(i) {
@@ -162,49 +150,6 @@ function showStep(i) {
   stepAt = Math.max(0, Math.min(i, guide["단계"].length - 1));
   remain = guide["단계"][stepAt]["타이머(초)"] || 0;
   paint();
-}
-function depth3d(canvas) {
-  // 2.5D: 깊이 맵만큼 사진의 각 점을 다르게 밀어, 카메라가 천천히 움직이는 것처럼 보이게 한다 (WebGL)
-  const gl = canvas.getContext("webgl", { premultipliedAlpha: false });
-  if (!gl || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const load = (src) => new Promise((ok, no) => Object.assign(new Image(), { onload() { ok(this); }, onerror: no, src }));
-  Promise.all([load(canvas.dataset.img), load(canvas.dataset.depth)]).then(([img, dep]) => {
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    const sh = (type, src) => { const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x); return x; };
-    const prog = gl.createProgram();
-    gl.attachShader(prog, sh(gl.VERTEX_SHADER, "attribute vec2 p;varying vec2 uv;void main(){uv=vec2(p.x*.5+.5,.5-p.y*.5);gl_Position=vec4(p,0,1);}"));
-    gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, "precision mediump float;uniform sampler2D img,dep;uniform vec2 off;varying vec2 uv;void main(){float d=texture2D(dep,uv).r;vec2 q=uv+off*(d-.5);q=.5+(q-.5)*.94;gl_FragColor=texture2D(img,q);}"));
-    gl.linkProgram(prog);
-    gl.useProgram(prog);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-    const loc = gl.getAttribLocation(prog, "p");
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-    [img, dep].forEach((im, i) => {
-      gl.activeTexture(gl.TEXTURE0 + i);
-      gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
-      gl.uniform1i(gl.getUniformLocation(prog, i ? "dep" : "img"), i);
-    });
-    const off = gl.getUniformLocation(prog, "off");
-    let tilt = [0, 0];
-    addEventListener("deviceorientation", (e) => (tilt = [(e.gamma || 0) / 900, (e.beta - 45 || 0) / 900]), { passive: true });
-    canvas.closest("figure").classList.add("has-depth");
-    const t0 = performance.now();
-    (function frame(t) {
-      if (!canvas.isConnected) return;
-      const k = (t - t0) / 1000;
-      gl.uniform2f(off, 0.03 * Math.sin(k * 0.6) + tilt[0], 0.015 * Math.cos(k * 0.45) + tilt[1]);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      requestAnimationFrame(frame);
-    })(t0);
-  }).catch(() => {});
 }
 let guideReq = null;
 async function openGuide(req) {
