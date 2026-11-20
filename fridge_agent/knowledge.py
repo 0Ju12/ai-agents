@@ -50,7 +50,7 @@ def embed(texts):
         import gateway
 
         if gateway.configured():
-            key, url = gateway.config()
+            key, url = gateway.openai_config()
             res = gateway.request_json(url + "/embeddings", {"model": os.getenv("RAG_EMBED_MODEL", "text-embedding-3-small"), "input": texts}, {"Authorization": "Bearer " + key}, timeout=20)
             return [x["embedding"] for x in res["data"]]
     return [local_embed(t) for t in texts]

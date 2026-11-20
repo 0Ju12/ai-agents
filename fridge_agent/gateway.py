@@ -1,4 +1,4 @@
-"""모델 연결: 판단·계획·응답·사진은 langchain-openai ChatOpenAI(GMS). request_json 은 외부 API 공용 HTTP 호출."""
+"""GMS Anthropic Messages 모델과 선택형 OpenAI 연결."""
 
 import json
 import os
@@ -7,13 +7,23 @@ from urllib.request import Request, urlopen
 
 from langchain_openai import ChatOpenAI
 
-DEFAULT_GMS = "https://gms.ssafy.io/gmsapi/api.openai.com/v1"
+GMS_MESSAGES_URL = "https://gms.ssafy.io/gmsapi/api.anthropic.com/v1/messages"
+DEFAULT_GMS_OPENAI = "https://gms.ssafy.io/gmsapi/api.openai.com/v1"
 
 
-def config():
-    key = os.getenv("GMS_KEY") or os.getenv("GMS_API_KEY")
+def gms_key():
+    return os.getenv("GMS_KEY") or os.getenv("GMS_API_KEY")
+
+
+def use_anthropic():
+    return bool(gms_key()) and os.getenv("GMS_PROVIDER", "anthropic").lower() != "openai"
+
+
+def openai_config():
+    """호환 채팅 및 선택형 RAG 임베딩에 쓰는 OpenAI 경로."""
+    key = gms_key()
     if key:
-        url = os.getenv("GMS_BASE_URL", DEFAULT_GMS).rstrip("/")
+        url = os.getenv("GMS_BASE_URL", DEFAULT_GMS_OPENAI).rstrip("/")
     else:
         key, url = os.getenv("OPENAI_API_KEY"), "https://api.openai.com/v1"
     if urlparse(url).scheme != "https":
@@ -22,7 +32,7 @@ def config():
 
 
 def configured():
-    return bool(config()[0])
+    return bool(gms_key() or os.getenv("OPENAI_API_KEY"))
 
 
 def request_json(url, data=None, headers=None, timeout=5, method=None):
@@ -45,24 +55,13 @@ def request_json(url, data=None, headers=None, timeout=5, method=None):
     return json.loads(body)
 
 
-def model_request(endpoint, body):
-    key, url = config()
-    if not key:
-        raise ValueError("모델 키가 필요합니다.")
-    return request_json(url + endpoint, body, {"Authorization": "Bearer " + key}, timeout=12)
-
-
-def model_name():
-    return os.getenv("GMS_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-6.1-sol"
-
-
 def chat_model():
-    """2일차 실습과 같은 방식: GMS 주소를 base_url 로 둔 ChatOpenAI. 기본은 Responses API(/v1/responses)."""
-    key, url = config()
+    """OpenAI 호환 모드를 명시한 설치에서 사용하는 연결."""
+    key, url = openai_config()
     if not key:
         raise ValueError("모델 키가 필요합니다.")
     return ChatOpenAI(
-        model=model_name(),
+        model=((os.getenv("GMS_MODEL") if gms_key() else os.getenv("OPENAI_MODEL")) or "gpt-6.1-sol"),
         api_key=key,
         base_url=url,
         timeout=30,
@@ -85,8 +84,50 @@ def _invoke(build, messages):
         raise OSError("모델 호출 실패: " + type(exc).__name__) from None
 
 
+def anthropic_message(role, prompt, content, schema=None):
+    body = {
+        "model": os.getenv("GMS_ANTHROPIC_MODEL") or "claude-opus-5-5",
+        "max_tokens": 2048,
+        "system": _system(role, prompt),
+        "messages": [{"role": "user", "content": content}],
+    }
+    if schema is not None:
+        body["tools"] = [{
+            "name": "return_result",
+            "description": "Return the result in the requested format.",
+            "input_schema": schema,
+        }]
+        body["tool_choice"] = {"type": "tool", "name": "return_result"}
+    try:
+        response = request_json(GMS_MESSAGES_URL, body, {
+            "x-api-key": gms_key(),
+            "anthropic-version": "2023-06-01",
+        }, timeout=30)
+    except (OSError, ValueError) as exc:
+        raise OSError("GMS 모델 호출 실패: " + type(exc).__name__) from None
+    if not isinstance(response, dict):
+        raise ValueError("GMS 응답 형식 오류")
+    blocks = response.get("content")
+    if not isinstance(blocks, list) or response.get("stop_reason") in {"max_tokens", "refusal"}:
+        raise ValueError("GMS 응답을 완성하지 못했습니다.")
+    blocks = [block for block in blocks if isinstance(block, dict)]
+    if schema is not None:
+        for block in blocks:
+            if block.get("type") == "tool_use" and block.get("name") == "return_result":
+                result = block.get("input")
+                if isinstance(result, dict):
+                    return result
+        raise ValueError("GMS 구조화 응답이 없습니다.")
+    text = "\n".join(block["text"] for block in blocks if block.get("type") == "text" and isinstance(block.get("text"), str)).strip()
+    if not text:
+        raise ValueError("GMS 텍스트 응답이 없습니다.")
+    return text
+
+
 def decide(role, prompt, obj):
     """JSON 객체 하나를 돌려받는 판단 호출 (Planner 해석·Worker 보정·Logger 진단)."""
+    if use_anthropic():
+        return anthropic_message(role, prompt, json.dumps(obj, ensure_ascii=False), {"type": "object"})
     reply = _invoke(
         lambda: chat_model().bind(response_format={"type": "json_object"}),
         [
@@ -102,6 +143,9 @@ def decide(role, prompt, obj):
 
 def structured(role, prompt, obj, schema):
     """Pydantic 양식(schema)을 모델이 채우게 한다 — 실습 step4 의 Plan 과 같은 방식."""
+    if use_anthropic():
+        result = anthropic_message(role, prompt, json.dumps(obj, ensure_ascii=False, default=str), schema.model_json_schema())
+        return schema.model_validate(result)
     result = _invoke(lambda: chat_model().with_structured_output(schema), [("system", _system(role, prompt)), ("user", json.dumps(obj, ensure_ascii=False, default=str))])
     if not isinstance(result, schema):
         raise ValueError("모델 응답 형식 오류")
@@ -110,6 +154,17 @@ def structured(role, prompt, obj, schema):
 
 def see(role, prompt, image_url, schema):
     """사진(data URL) 한 장을 보고 schema 양식을 채운다. 사진은 저장하지 않고 이 호출에만 쓴다."""
+    if use_anthropic():
+        header, _, data = image_url.partition(",")
+        media_type = header.removeprefix("data:").removesuffix(";base64")
+        if media_type not in {"image/jpeg", "image/png", "image/webp"} or not data:
+            raise ValueError("GMS에서 지원하는 사진 형식을 사용하세요.")
+        content = [
+            {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": "".join(data.split())}},
+            {"type": "text", "text": "사진을 분석해 양식을 채워라."},
+        ]
+        return schema.model_validate(anthropic_message(role, prompt, content, schema.model_json_schema()))
+
     from langchain_core.messages import HumanMessage, SystemMessage
 
     messages = [
@@ -124,6 +179,8 @@ def see(role, prompt, image_url, schema):
 
 def write(role, prompt, obj):
     """사용자에게 보여 줄 문장 생성 (응답 단계 전용)."""
+    if use_anthropic():
+        return anthropic_message(role, prompt, json.dumps(obj, ensure_ascii=False, default=str))
     reply = _invoke(
         chat_model,
         [("system", _system(role, prompt)), ("user", json.dumps(obj, ensure_ascii=False, default=str))],

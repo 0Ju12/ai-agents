@@ -60,6 +60,7 @@ def test_index_rebuilds_when_documents_change(monkeypatch, tmp_path):
 
 def test_model_answer_is_built_from_evidence(monkeypatch):
     monkeypatch.setenv("GMS_KEY", "unit-test-value")
+    monkeypatch.setenv("GMS_PROVIDER", "openai")
     monkeypatch.setattr(gateway, "ChatOpenAI", FakeChat.factory(decide={"action": "질문", "argument": "카페인 하루 얼마까지?"}, answer="식약처는 성인 카페인을 하루 400mg 이하로 안내해요."))
     p = api.run("카페인 하루에 얼마까지 괜찮아?")["계획"]
     assert p["답변"].startswith("식약처는") and p["근거 문서"][0]["title"] == "카페인 하루 최대 섭취 권고량"

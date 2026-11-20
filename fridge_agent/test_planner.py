@@ -38,6 +38,7 @@ def calls(monkeypatch):
 
 def with_model(monkeypatch, **script):
     monkeypatch.setenv("GMS_KEY", "unit-test-value")
+    monkeypatch.setenv("GMS_PROVIDER", "openai")
     FakeChat.calls.clear()
     monkeypatch.setattr(gateway, "ChatOpenAI", FakeChat.factory(**script))
 

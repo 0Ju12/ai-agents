@@ -52,6 +52,7 @@ def test_servings_drive_cart_and_no_buy_words():
 def test_model_can_only_pick_allowed_actions(monkeypatch):
     api.run("데모")
     monkeypatch.setenv("GMS_KEY", "unit-test-value")
+    monkeypatch.setenv("GMS_PROVIDER", "openai")
     monkeypatch.setattr(
         gateway, "ChatOpenAI",
         FakeChat.factory(decide={"action": "추천"}, plan={"AutoPlan": {"actions": ["메뉴확정"], "servings": 2, "reason": "메뉴만"}}, answer="두부 달걀찜으로 정했어요."),
@@ -80,6 +81,7 @@ def test_model_reply_comes_with_plan_to_save_a_call(monkeypatch):
     """자동 진행 판단에서 문장까지 받으면 별도 답변 호출을 하지 않는다(해석 1 + 판단 1 = 2회)."""
     api.run("데모")
     monkeypatch.setenv("GMS_KEY", "unit-test-value")
+    monkeypatch.setenv("GMS_PROVIDER", "openai")
     FakeChat.calls.clear()
     monkeypatch.setattr(
         gateway, "ChatOpenAI",

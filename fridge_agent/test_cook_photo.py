@@ -30,6 +30,7 @@ def client():
 
 def with_model(monkeypatch, **script):
     monkeypatch.setenv("GMS_KEY", "unit-test-value")
+    monkeypatch.setenv("GMS_PROVIDER", "openai")
     monkeypatch.setattr(gateway, "ChatOpenAI", FakeChat.factory(**script))
 
 

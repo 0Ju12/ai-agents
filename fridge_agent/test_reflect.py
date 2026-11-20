@@ -111,6 +111,7 @@ def test_meal_photo_endpoint_gives_basis_and_kcal(c, monkeypatch):
     import base64
 
     monkeypatch.setenv("GMS_KEY", "unit-test-value")
+    monkeypatch.setenv("GMS_PROVIDER", "openai")
     monkeypatch.setattr(gateway, "ChatOpenAI", FakeChat.factory(plan={"Sight": {"items": [{"name": "제육볶음", "grams": 250, "confidence": 0.8}, {"name": "밥", "grams": 210, "confidence": 0.9}]}}))
     image = "data:image/jpeg;base64," + base64.b64encode(b"\xff\xd8\xff\xe0" + b"0" * 400).decode()
     r = c.post("/api/photo", json={"kind": "meal", "image": image}).json()

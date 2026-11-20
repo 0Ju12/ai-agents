@@ -25,7 +25,7 @@ python -m pip install -r requirements-dev.txt
 python -m pytest -rs --junitxml=/tmp/hankki-check.xml
 ```
 
-실계정 점검은 따로 실행한다. GMS는 서버 환경의 `GMS_API_KEY` 또는 `GMS_KEY`와 사용 가능한 `GMS_MODEL`을 사용한다. Google은 로컬 모드에서 앱의 OAuth 연결을 마친 테스트용 데이터 폴더를 `FRIDGE_DATA_DIR`로 지정한다. `HANKKI_CHECK_PLAN_ID`를 설정하면 해당 저장 계획을 연결된 캘린더에 실제로 등록하거나 같은 이벤트를 갱신하고 다시 읽는다. 등록한 일정은 캘린더에 남는다. ID를 생략하면 Google 조회만 실행할 수 있다.
+실계정 점검은 따로 실행한다. GMS는 서버 환경의 `GMS_API_KEY` 또는 `GMS_KEY`와 사용 가능한 `GMS_ANTHROPIC_MODEL`을 사용한다. Google은 로컬 모드에서 앱의 OAuth 연결을 마친 테스트용 데이터 폴더를 `FRIDGE_DATA_DIR`로 지정한다. `HANKKI_CHECK_PLAN_ID`를 설정하면 해당 저장 계획을 연결된 캘린더에 실제로 등록하거나 같은 이벤트를 갱신하고 다시 읽는다. 등록한 일정은 캘린더에 남는다. ID를 생략하면 Google 조회만 실행할 수 있다.
 
 ```sh
 HANKKI_COURSE_LIVE=1 python -m pytest fridge_agent/test_course_live.py -rs -s --junitxml=/tmp/hankki-live.xml

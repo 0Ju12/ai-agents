@@ -17,7 +17,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 ```
 ```bash
-cp .env.example .env
+cp fridge_agent/.env.example fridge_agent/.env
 ```
 ```bash
 cd fridge_agent && python app.py
@@ -95,7 +95,7 @@ YouTube·Instagram 은 키가 있으면 자동으로 찾고, 키가 없어도 **
 3. 코드가 레시피 재료와 냉장고 재고를 비교해, 없는 재료만 쇼핑 검색에 넘깁니다.
 4. 모델이 그 결과를 요약합니다.
 
-모델 호출은 2일차 실습과 같이 `langchain-openai`의 `ChatOpenAI`에 GMS 주소를 넣어 씁니다. 등록되지 않은 도구는 코드가 버리고, 모델이 실패하면 규칙 계획으로 계속 진행합니다. 테스트는 대역 모델(`fridge_agent/fake_llm.py`)로 키 없이 돕니다.
+GMS의 Anthropic Messages API에서 `claude-opus-5-5`로 대화·계획·사진 인식을 처리합니다. 서버의 `fridge_agent/.env`에 `GMS_KEY`를 설정합니다. 등록되지 않은 도구는 코드가 버리고, 모델이 실패하면 규칙 계획으로 계속 진행합니다. 테스트는 대역 모델(`fridge_agent/fake_llm.py`)로 키 없이 돕니다.
 
 [2·3일차 수업별 검증 결과와 재실행 방법](fridge_agent/docs/course-check.md)
 

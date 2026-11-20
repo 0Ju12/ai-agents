@@ -197,6 +197,7 @@ def test_google_adapter_and_gms_routing(monkeypatch):
     from fake_llm import FakeChat
 
     monkeypatch.setenv("GMS_KEY", "unit-test-value")
+    monkeypatch.setenv("GMS_PROVIDER", "openai")
     FakeChat.calls.clear()
     monkeypatch.setattr(gateway, "ChatOpenAI", FakeChat.factory(decide={"action": "추천", "minutes": 24}))
     out = api.run("오늘 쓸 수 있는 시간이 얼마인지 반영해줘")
